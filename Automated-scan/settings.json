@@ -1,0 +1,10 @@
+{
+    "scan_resolution": 300,
+    "num_wells": 98,
+
+
+    "hg_dp": 100,
+    "hg_min_dist": 20,
+    "hg_min_rad": 10,
+    "hg_max_rad": 10
+}
