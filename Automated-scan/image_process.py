@@ -4,7 +4,16 @@ import json
 
 # 64 bit process
 
+
+# static class: identify the wells
+
 class im_process():
+
+    def load_settings():
+        settings = {}
+        with open('./Automated-scan/settings.json') as json_file:
+            settings = json.load(json_file)
+        return settings
 
     def locate_wells(scan_path):
         image = cv2.imread(scan_path)
@@ -20,12 +29,18 @@ class im_process():
         cv2.waitKey(0)
         # detect circles in the image
 
-        # params::
-
-        HG_DP = 1000  # 1/px inverse res, higher = better
-        HG_MIN_DIST = 35  # px
-        HG_MAX_RAD = 15  # px
-        HG_MIN_RAD = 8
+        # set parameters
+        settings = im_process.load_settings()
+        if settings:
+            HG_DP = settings["hg_dp"]
+            HG_MIN_DIST = settings["hg_min_dist"]
+            HG_MAX_RAD = settings["hg_max_rad"]
+            HG_MIN_RAD = settings["hg_min_rad"]
+        else:   
+            HG_DP = 1000  # 1/px inverse res, higher = better
+            HG_MIN_DIST = 35  # px
+            HG_MAX_RAD = 15  # px
+            HG_MIN_RAD = 8
 
         circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, HG_DP,
                                    HG_MIN_DIST, minRadius=HG_MIN_RAD, maxRadius=HG_MAX_RAD)
