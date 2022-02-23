@@ -23,6 +23,8 @@ class sc_process():
             self.scan_interval = settings["scan_interval"]
 
     def acquire_scan(self, im_name):
+        # deprecated function to scan image
+
         scanner_source = self.dsm.open_source(self.source_name)
         scanner_source.RequestAcquire(0, 0)  # request acquire without UI
         rv = scanner_source.XferImageNatively()
@@ -65,6 +67,14 @@ class sc_process():
 
         self.acquire_scan(file_name)
 
+    def scan_im(self, im_name):
+        filepath = self.output_path + im_name
+        try:
+            res = twain.acquire(filepath, ds_name=self.source_name, dpi=300, frame=(0, 0, 8.17551, 11.45438), pixel_type='color')
+        except:
+            pass
+        else:
+            pass
 
 # command scanner to start processing
 def main():

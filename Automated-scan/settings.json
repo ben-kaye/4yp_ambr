@@ -2,6 +2,9 @@
     "scan_resolution": 300,
     "num_wells": 98,
 
+    "scan_interval": 60,
+
+    "exp_max": 10,
 
     "hg_dp": 100,
     "hg_min_dist": 20,

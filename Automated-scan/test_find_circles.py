@@ -24,14 +24,14 @@ from PIL import ImageOps
 # image_pre.save('./tmp/processed_scan.png')
 
 
-image = cv2.imread("./tmp/processed_scan.png")
+image = cv2.imread("./tmp/img004.png")
 
 output = image.copy()
 gray = cv2.equalizeHist(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY))
 
-gray = cv2.GaussianBlur(gray, (5,5), 5)
+# gray = cv2.GaussianBlur(gray, (5,5), 5)
 
-out = cv2.Sobel(gray, 6, 1, 1)
+# out = cv2.Sobel(gray, 6, 1, 1)
 
 
 cv2.imshow('t',gray)
@@ -40,13 +40,23 @@ cv2.waitKey(0)
 
 #params::
 
-HG_DP = 1000 # 1/px inverse res, higher = better
-HG_MIN_DIST = 35 # px
-HG_MAX_RAD = 15 # px
-HG_MIN_RAD = 8
+
+# res = 300dpi
+DPI = 300 # PPI
+CRAD = 3/25.4 # inch
+
+
+
+HG_DP = 0.1 # 1/px inverse res, higher = better
+HG_MIN_DIST = 20 # px
+HG_MAX_RAD = 100 # px
+HG_MIN_RAD = 1
 
 
 circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, HG_DP, HG_MIN_DIST, minRadius=HG_MIN_RAD, maxRadius=HG_MAX_RAD)
+
+
+
 # ensure at least some circles were found
 if circles is not None:
 	# convert the (x, y) coordinates and radius of the circles to integers

@@ -5,6 +5,9 @@ import twain
 dsm = twain.SourceManager(0)
 scanner_source = dsm.open_source(b'EPSON Perfection V200')
 
+
+# scanner_source.set
+
 scanner_source.RequestAcquire(0,0)
 rv = scanner_source.XferImageNatively()
 if rv:
