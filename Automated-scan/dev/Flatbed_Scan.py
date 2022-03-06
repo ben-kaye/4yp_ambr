@@ -1,6 +1,6 @@
 from time import sleep, time
 import twain
-
+import Util
 import os
 
 class SC:
@@ -56,10 +56,7 @@ class SC:
         return self.out_path + self.name_conv + str(self.scan_index) + self.filetype
 
     def check_stop():
-        stop_scan = False
-        with open('./Automated-scan/bin/stop_scan.bin', 'rb') as x:
-            stop_scan = x.read()
+        stop_scan = Util.bin_read('stop_scan')
         if stop_scan:
-            with open('./Automated-scan/bin/stop_scan.bin', 'wb') as g:
-                g.write(bytes([0b0]))
+            Util.bin_write('stop_scan', False)
         return stop_scan
