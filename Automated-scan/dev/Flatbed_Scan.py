@@ -1,4 +1,4 @@
-from time import sleep
+from time import sleep, time
 import twain
 
 import os
@@ -6,13 +6,16 @@ import os
 class SC:
     scan_index = 0  # current scan index
     # out_path = './Automated-scan/Scans/'
-    out_path = 'Experiment-data/'
+    out_path = 'Automated-scan/Experiment-data/'
     name_conv = 'scan_'
     filetype = '.bmp'
     wait_time = 60  # seconds
     sc_name = b'EPSON Perfection V200'
-    frame = (0, 0, 8.17551, 11.45438)
+    frame = (3.1, 4, 5.8, 6.8) # 
+    # frame = (0, 0, 8, 11) # A4 FRAME
     dpi = 300
+
+    max_scans = 1440
 
     def take_scan(self):
         success = False
@@ -35,11 +38,17 @@ class SC:
         
 
     def scan_schedule(self):
-        if (SC.check_stop()):
+        if SC.check_stop() or self.scan_index > self.max_scans:
             return 0
         
+        start_time = time()
+        
         self.take_scan()
-        sleep(self.wait_time)
+
+        delta_time = start_time - time()
+        remainder = max(self.wait_time - delta_time, 0)
+        sleep(min(self.wait_time, remainder))
+
         self.scan_schedule()
         
 
