@@ -1,7 +1,7 @@
 from time import sleep, time
 import cv2
 import exifread
-from Well_Detector import Well_Finder
+from Detect import Well_Detector
 import numpy as np
 
 
@@ -44,7 +44,7 @@ class Controller:
             self.next_scan()
 
     def recover_wells(self, im_path):
-        WF = Well_Finder()
+        WF = Well_Detector()
         self.wells = WF.return_wells(im_path)
 
     def process_scan(self, im, dateTaken):

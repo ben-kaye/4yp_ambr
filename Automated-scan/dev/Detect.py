@@ -7,7 +7,7 @@ import numpy as np
 # from PIL import ImageOps
 
 
-class Well_Finder():
+class Well_Detector():
 
     # gray = cv2.GaussianBlur(gray, (5,5), 5)
 
@@ -61,7 +61,7 @@ class Well_Finder():
     def extrapolate(self, circles):
         points = [(x, y) for (x, y, r) in circles]
 
-        centre, rad, rot = Well_Finder.fit_circle(points, self.N_wells)
+        centre, rad, rot = Well_Detector.fit_circle(points, self.N_wells)
 
         ideal_angles = list(np.linspace(
             0, 2*pi*(1 - 1/self.N_wells), self.N_wells))
