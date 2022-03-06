@@ -13,6 +13,14 @@ class Controller:
     wells = None
     data = []
 
+    radial_amount = 0.5  # [%]
+    mask = []
+
+    R = 38
+
+    def __init__(self):
+        self.mask = self.compute_mask()
+
     def next_scan(self, abort=False):
 
         path_file = self.inpath + str(self.current_index) + '.bmp'
@@ -46,12 +54,13 @@ class Controller:
     def recover_wells(self, im_path):
         WF = Well_Detector()
         self.wells = WF.return_wells(im_path)
+
     def recover_wells(self):
         self.wells = Well_Detector.read_well_loc()
 
     def process_scan(self, im, dateTaken):
         condensed_im = Controller.crop_ims(self.wells, im)
-        densities = [Controller.avg_well(i) for i in condensed_im]
+        densities = [self.avg_well(i) for i in condensed_im]
         self.data.append((densities, dateTaken))
 
         write_im = np.hstack(condensed_im)
@@ -75,6 +84,32 @@ class Controller:
 
         return well_ims
 
-    def avg_well(well_im):
+    def compute_mask(self):
 
-        return np.average(well_im)
+        width = 2*self.R
+        mask = np.zeros((width, width))
+
+        mask = []
+
+        for u in range(width):
+            for v in range(width):
+                mask.append(1 if (u - self.R)**2 + (v - self.R)**2 < (self.R*self.radial_amount)**2 else 0)
+        f = sum(mask)
+
+        return np.array(mask)/f
+
+    def avg_well(self, well_im):
+        (x,y,z) = np.shape(well_im)
+
+
+        avg = np.zeros((3,))
+        for u in range(x):
+            for v in range(y):
+                avg += well_im[u][v] * self.mask[x*u + v]
+
+        density = round((0.2989*avg[0]+ 0.5870*avg[1] + 0.1140*avg[2])/255, 6)
+
+        cols = [ hex(round(w)) for w in list(avg)]
+        hex_code = cols[0] + cols[1][2:] + cols[2][2:]
+
+        return (density, hex_code)
