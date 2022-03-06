@@ -46,6 +46,8 @@ class Controller:
     def recover_wells(self, im_path):
         WF = Well_Detector()
         self.wells = WF.return_wells(im_path)
+    def recover_wells(self):
+        self.wells = Well_Detector.read_well_loc()
 
     def process_scan(self, im, dateTaken):
         condensed_im = Controller.crop_ims(self.wells, im)

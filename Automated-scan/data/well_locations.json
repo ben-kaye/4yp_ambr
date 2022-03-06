@@ -1,12 +1,88 @@
 {
     "wells": [
         {
-            "center": [0,3],
-            "radius": 8
+            "center": [
+                201,
+                229
+            ],
+            "radius": 38
         },
         {
-            "center": [8,15],
-            "radius": 8
+            "center": [
+                303,
+                133
+            ],
+            "radius": 38
+        },
+        {
+            "center": [
+                440,
+                101
+            ],
+            "radius": 38
+        },
+        {
+            "center": [
+                574,
+                141
+            ],
+            "radius": 38
+        },
+        {
+            "center": [
+                670,
+                243
+            ],
+            "radius": 38
+        },
+        {
+            "center": [
+                703,
+                380
+            ],
+            "radius": 38
+        },
+        {
+            "center": [
+                662,
+                515
+            ],
+            "radius": 38
+        },
+        {
+            "center": [
+                560,
+                611
+            ],
+            "radius": 38
+        },
+        {
+            "center": [
+                423,
+                643
+            ],
+            "radius": 38
+        },
+        {
+            "center": [
+                289,
+                603
+            ],
+            "radius": 38
+        },
+        {
+            "center": [
+                193,
+                501
+            ],
+            "radius": 38
+        },
+        {
+            "center": [
+                160,
+                364
+            ],
+            "radius": 38
         }
     ]
 }

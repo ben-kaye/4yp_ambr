@@ -3,19 +3,16 @@ from math import pi
 import cv2
 import math
 import numpy as np
+import Util
 # from PIL import Image
 # from PIL import ImageOps
 
+import json
 
 class Well_Detector():
 
-    # gray = cv2.GaussianBlur(gray, (5,5), 5)
+    # default settings!
 
-    # out = cv2.Sobel(gray, 6, 1, 1)
-
-    # params:
-
-    # res = 300dpi
     DPI = 300  # PPI
     CRAD = 38
 
@@ -27,6 +24,18 @@ class Well_Detector():
     N_wells = 12
 
     wells = []
+
+    def Well_Detector(self):
+        settings = Util.load_settings()
+
+        if settings:
+            self.DPI = settings["scan_dpi"]
+            self.HG_DP = settings["hg_dp"]
+            self.HG_MAX_RAD = settings["hg_max_rad"]
+            self.HG_MIN_RAD = settings["hg_min_rad"]
+            self.HG_MIN_DIST = settings["hg_min_dist"]
+            self.N_wells = settings["wells_per_cluster"]
+            self.CRAD = settings["crad"]        
 
     def return_wells(self, im_name):
         crc = self.find_circles(im_name)
@@ -44,19 +53,21 @@ class Well_Detector():
     def find_circles(self, im_name):
 
         image = cv2.imread(im_name)
+        
+        image_processed = self.process_im(image)
+        
 
-        # output = image.copy()ty
-        gray = cv2.equalizeHist(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY))
-
-        circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, self.HG_DP,
+        circles = cv2.HoughCircles(image_processed, cv2.HOUGH_GRADIENT, self.HG_DP,
                                    self.HG_MIN_DIST, minRadius=self.HG_MIN_RAD, maxRadius=self.HG_MAX_RAD)
 
-        ret = []
-        # for (x, y, r) in circles:
-        #     ret.append((round(x), round(y), r))
-        # return ret
+        return [(round(x), round(y), round(r)) for (x, y, r) in circles[0, :]]
 
-        return [(round(x), round(y), r) for (x, y, r) in circles[0, :]]
+    def process_im(self, im):
+        gray = cv2.equalizeHist(cv2.cvtColor(im, cv2.COLOR_BGR2GRAY))
+
+        # gray = cv2.GaussianBlur(gray, (5,5), 5)
+        # gray = cv2.Sobel(gray, 6, 1, 1)
+        return gray
 
     def extrapolate(self, circles):
         points = [(x, y) for (x, y, r) in circles]
@@ -107,3 +118,16 @@ class Well_Detector():
         rot = np.mean(diff_list) + pi/N
 
         return centre, rad, rot
+
+    def store_well_loc(circles):
+        circle_loc = {}
+        circle_loc['wells'] = [{'center': [x, y], 'radius': r}
+                               for (x, y, r) in circles]
+
+        with open('./Automated-scan/data/well_locations.json', 'w') as outfile:
+            json.dump(circle_loc, outfile)
+
+    def read_well_loc():
+        with open('./Automated-scan/data/well_locations.json') as json_file:
+            data = json.load(json_file)
+        return [(well['center'][0], well['center'][1], well['radius']) for well in data['wells']]
