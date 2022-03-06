@@ -1,30 +1,33 @@
 from time import sleep, time
 import cv2
 import exifread
+from Well_Detector import Well_Finder
+import numpy as np
 
 
 class Controller:
 
     current_index = 0
-    inpath = './../Scans/scan_'
+    inpath = './Experiment-data/scan_'
     poll_time = 10
-    circles = None
+    wells = None
     data = []
 
-    def next_scan(self):
+    def next_scan(self, abort=False):
 
-        path_file = self.inpath + self.current_index + '.bmp'
+        path_file = self.inpath + str(self.current_index) + '.bmp'
 
         exists = False
         dateTaken = None
 
-        with open(path_file, 'rb') as fh:
-            tags = exifread.process_file(fh, stop_tag="EXIF DateTimeOriginal")
-            dateTaken = tags["EXIF DateTimeOriginal"]
+        # with open(path_file, 'rb') as fh:
+        #     tags = exifread.process_file(fh, stop_tag="EXIF DateTimeOriginal")
+        #     if tags:
+        #         dateTaken = tags["EXIF DateTimeOriginal"]
 
-            exists = True # is this safe??? TODOs
+        #     exists = True  # is this safe??? TODOs
 
-        im = self.read_im()
+        im = self.read_im(path_file)
 
         t_start = time()
 
@@ -36,28 +39,40 @@ class Controller:
 
         if (t_delta < self.poll_time):
             sleep(self.poll_time - t_delta)
-        self.next_scan()
+
+        if not abort:
+            self.next_scan()
+
+    def recover_wells(self, im_path):
+        WF = Well_Finder()
+        self.wells = WF.return_wells(im_path)
 
     def process_scan(self, im, dateTaken):
-        condensed_im = Controller.crop_ims(self.circles, im)
-        densities = [ Controller.avg_well(i) for i in condensed_im ]
+        condensed_im = Controller.crop_ims(self.wells, im)
+        densities = [Controller.avg_well(i) for i in condensed_im]
         self.data.append((densities, dateTaken))
 
-        write_im = cv2.hcat()
+        write_im = np.hstack(condensed_im)
         # write to file
-        cv2.imwrite('./../State/wells_' + self.current_index + '.png', write_im)
+        cv2.imwrite('./Experiment-processed/wells_' +
+                    str(self.current_index) + '.png', write_im)
 
-    def read_im(path):
-        return None
+    def read_im(self, path):
+        return cv2.imread(path)
 
-    def crop_ims(circles, image):
+    def crop_ims(wells, image):
 
         well_ims = []
 
-        for x, y, r in circles:
-            well_ims.append(image[x-r:x+r, y-r:y+r])
+        for x, y, r in wells:
+
+            sub_im = image[y-r:y+r, x-r:x+r]
+
+            if sub_im.any():
+                well_ims.append(sub_im)
 
         return well_ims
 
     def avg_well(well_im):
-        return CV2.average(well_im)
+
+        return np.average(well_im)
