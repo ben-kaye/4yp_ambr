@@ -1,11 +1,13 @@
-
 from math import pi
+from random import sample
 import cv2
 import math
 import numpy as np
 import Util
 # from PIL import Image
 # from PIL import ImageOps
+
+import itertools
 
 import json
 
@@ -25,7 +27,7 @@ class Well_Detector():
 
     wells = []
 
-    def Well_Detector(self):
+    def __init__(self):
         settings = Util.load_settings()
 
         if settings:
@@ -43,6 +45,7 @@ class Well_Detector():
 
         output = cv2.imread(im_name)
         for (x, y, r) in self.wells:
+        # for (x,y,r) in crc:
             cv2.circle(output, (x, y), r, (0, 255, 0), 4)
 
         new_name = im_name[:-4] + 'post' + im_name[-4:]
@@ -72,13 +75,57 @@ class Well_Detector():
     def extrapolate(self, circles):
         points = [(x, y) for (x, y, r) in circles]
 
-        centre, rad, rot = Well_Detector.fit_circle(points, self.N_wells)
+
+        c_star = 0
+        rot_star = 0
+        rad_star = 0
+
+        final_points = {}
+
+        for sample_points in itertools.combinations(points, 4):
+            centre, rad, rot = Well_Detector.fit_circle(sample_points, self.N_wells)
+
+
+            apr_c = (round(centre[0]), round(centre[1]))
+
+            if Well_Detector.approx_equal(rad, 271, 5e-3):
+                if apr_c in final_points:
+                    final_points[apr_c].extend(sample_points)
+                else:
+                    final_points[apr_c] = list(sample_points)
+
+
+        max_length = 0
+
+        best_points = []
+        for k in final_points:
+            f = final_points[k]
+
+            if len(f) > 4:
+                z = list(dict.fromkeys(f))
+                if len(z) > max_length:
+                    max_length = len(z)
+                    best_points = z
+
+        # fit_points = list(dict.fromkeys(final_points))
+
+
+        # self.wells = [(x,y, self.CRAD) for (x,y) in best_points ]
+        
+        c_star, rad_star, rot_star = Well_Detector.fit_circle(best_points,self.N_wells)
+
+        rot_star -= pi/self.N_wells
+
+       
 
         ideal_angles = list(np.linspace(
             0, 2*pi*(1 - 1/self.N_wells), self.N_wells))
 
-        self.wells = [(round(rad*math.cos(p + rot) + centre[0]),
-                       round(rad*math.sin(p + rot) + centre[1]), self.CRAD) for p in ideal_angles]
+        self.wells = [(round(rad_star*math.cos(p + rot_star) + c_star[0]),
+                       round(rad_star*math.sin(p + rot_star) + c_star[1]), self.CRAD) for p in ideal_angles]
+
+    def approx_equal(val, desired_val, error):
+        return val < desired_val*(1 + error) and val > desired_val*(1 - error)
 
     def fit_circle(points, N):
 
