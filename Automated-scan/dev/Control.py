@@ -41,6 +41,7 @@ class Controller:
 
         if im is not None:
             self.process_scan(im, dateTaken)
+            self.write_data()
             self.current_index += 1
 
         t_delta = time() - t_start
@@ -93,23 +94,30 @@ class Controller:
 
         for u in range(width):
             for v in range(width):
-                mask.append(1 if (u - self.R)**2 + (v - self.R)**2 < (self.R*self.radial_amount)**2 else 0)
+                mask.append(1 if (u - self.R)**2 + (v - self.R) **
+                            2 < (self.R*self.radial_amount)**2 else 0)
         f = sum(mask)
 
         return np.array(mask)/f
 
-    def avg_well(self, well_im):
-        (x,y,z) = np.shape(well_im)
+    def write_data(self):
+        with open('./Experiment-processed/base.csv', 'a') as p:
+            p.writelines(str(self.data[-1][0][0]) + '\n')
 
+    def avg_well(self, well_im):
+        (x, y, z) = np.shape(well_im)
 
         avg = np.zeros((3,))
         for u in range(x):
             for v in range(y):
                 avg += well_im[u][v] * self.mask[x*u + v]
 
-        density = round((0.2989*avg[0]+ 0.5870*avg[1] + 0.1140*avg[2])/255, 6)
 
-        cols = [ hex(round(w)) for w in list(avg)]
+        pixel = avg.astype(np.single).reshape((1,1,3))
+        density = cv2.cvtColor(pixel, cv2.COLOR_RGB2GRAY)[0,0]
+
+
+        cols = [hex(round(w)) for w in list(avg)]
         hex_code = cols[0] + cols[1][2:] + cols[2][2:]
 
         return (density, hex_code)
