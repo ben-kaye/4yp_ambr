@@ -3,6 +3,7 @@ import twain
 import Util
 import os
 
+
 class SC:
     scan_index = 0  # current scan index
     # out_path = './Automated-scan/Scans/'
@@ -11,7 +12,9 @@ class SC:
     filetype = '.bmp'
     wait_time = 60  # seconds
     sc_name = b'EPSON Perfection V200'
-    frame = (3.1, 4, 5.8, 6.8) # 
+    # frame = (3.1, 4, 5.8, 6.8) #
+
+    frame = (3.1, 4.8, 5.8, 7.5)
     # frame = (0, 0, 8, 11) # A4 FRAME
     dpi = 300
 
@@ -21,8 +24,11 @@ class SC:
         success = False
         # next_index = self.scan_index + 1
 
+        start_time = time()
+
         try:
-            result = twain.acquire(self.get_filename(), ds_name=self.sc_name, dpi=self.dpi, frame=self.frame, pixel_type='color')
+            result = twain.acquire(self.get_filename(
+            ), ds_name=self.sc_name, dpi=self.dpi, frame=self.frame, pixel_type='color')
 
             if result is not None:
                 success = True
@@ -32,25 +38,28 @@ class SC:
         if success:
             self.scan_index += 1
         else:
-            # try and diagnose problem?
+
+            delta_time = start_time - time()
+            remainder = max(self.wait_time - delta_time, 0)
+            sleep(min(self.wait_time, remainder))
+
+            self.take_scan()
             print('failure')
 
-        
-
     def scan_schedule(self):
-        if SC.check_stop() or self.scan_index > self.max_scans:
-            return 0
-        
-        start_time = time()
-        
-        self.take_scan()
 
-        delta_time = start_time - time()
-        remainder = max(self.wait_time - delta_time, 0)
-        sleep(min(self.wait_time, remainder))
+        for i in range(self.max_scans):
 
-        self.scan_schedule()
-        
+            if SC.check_stop() or self.scan_index > self.max_scans:
+                return 0
+
+            start_time = time()
+
+            self.take_scan()
+
+            delta_time = start_time - time()
+            remainder = max(self.wait_time - delta_time, 0)
+            sleep(min(self.wait_time, remainder))
 
     def get_filename(self):
         return self.out_path + self.name_conv + str(self.scan_index) + self.filetype

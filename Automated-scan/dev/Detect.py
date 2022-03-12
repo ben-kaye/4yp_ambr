@@ -76,6 +76,7 @@ class Well_Detector():
     def extrapolate(self, circles):
         fit_thresh = 1
         key_interval = 5
+        sample_N = 4
 
         points = [(x, y) for (x, y, r) in circles]
 
@@ -85,11 +86,12 @@ class Well_Detector():
 
         final_points = {}
 
-        for sample_points in itertools.combinations(points, 4):
+        for sample_points in itertools.combinations(points, sample_N):
             centre, rad, rot = Well_Detector.fit_circle(
                 sample_points, self.N_wells)
 
-            apr_c = (Well_Detector.discretise(centre[0], key_interval), Well_Detector.discretise(centre[1],key_interval))
+            apr_c = (Well_Detector.discretise(
+                centre[0], key_interval), Well_Detector.discretise(centre[1], key_interval))
 
             # does it match expected radius and are the points on a circle
             if Well_Detector.approx_equal(rad, self.big_R, 5e-3) and Well_Detector.fits_circle(sample_points, centre, rad, fit_thresh):
