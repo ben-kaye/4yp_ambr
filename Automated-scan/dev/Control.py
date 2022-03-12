@@ -5,6 +5,7 @@ from Detect import Well_Detector
 import numpy as np
 from os.path import exists
 
+
 class Controller:
 
     current_index = 0
@@ -33,18 +34,18 @@ class Controller:
             if ~exists(self.get_path(self.current_index)) & (t_delta < self.poll_time):
                 sleep(self.poll_time - t_delta)
 
-    def get_path(self,idx):
+    def get_path(self, idx):
         return self.inpath + str(idx) + self.ft
 
     def read_scan(self, abort=False):
 
         path_file = self.get_path(self.current_index)
 
-        exists = self.exists(path_file)
+        file_exists = exists(path_file)
         dateTaken = None
         im = None
 
-        if exists:
+        if file_exists:
             im = self.read_im(path_file)
 
         if im is not None:
@@ -75,7 +76,6 @@ class Controller:
     def crop_ims(wells, image):
 
         well_ims = []
-
         for x, y, r in wells:
 
             sub_im = image[y-r:y+r, x-r:x+r]
@@ -112,10 +112,8 @@ class Controller:
             for v in range(y):
                 avg += well_im[u][v] * self.mask[x*u + v]
 
-
-        pixel = avg.astype(np.single).reshape((1,1,3))
-        density = cv2.cvtColor(pixel, cv2.COLOR_RGB2GRAY)[0,0]
-
+        pixel = avg.astype(np.single).reshape((1, 1, 3))
+        density = cv2.cvtColor(pixel, cv2.COLOR_RGB2GRAY)[0, 0]
 
         cols = [hex(round(w)) for w in list(avg)]
         hex_code = cols[0] + cols[1][2:] + cols[2][2:]

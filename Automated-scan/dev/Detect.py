@@ -75,7 +75,7 @@ class Well_Detector():
 
     def extrapolate(self, circles):
         fit_thresh = 2
-        key_interval = 5
+        key_interval = 10
         sample_N = 3
 
         points = [(x, y) for (x, y, r) in circles]
@@ -113,20 +113,22 @@ class Well_Detector():
                 max_length = len(z)
                 best_points = z
 
-        # fit_points = list(dict.fromkeys(final_points))
-
-        # self.wells = [(x,y, self.CRAD) for (x,y) in best_points ]
-
         c_star, rad_star, rot_star = Well_Detector.fit_circle(
             best_points, self.N_wells)
 
-        # rot_star -= pi/self.N_wells
+        self.wells = Well_Detector.recover_points(
+            c_star, rad_star, rot_star, self.CRAD, self.N_wells)
 
+        print('circs id')
+
+        # self.wells = [(x, y, self.CRAD) for (x, y) in best_points]
+        # self.wells = [(x, y, self.CRAD) for (x, y) in points]
+
+    def recover_points(center, bigR, rot, smallR, N):
         ideal_angles = list(np.linspace(
-            0, 2*pi*(1 - 1/self.N_wells), self.N_wells))
-
-        self.wells = [(round(rad_star*math.cos(p + rot_star) + c_star[0]),
-                       round(rad_star*math.sin(p + rot_star) + c_star[1]), self.CRAD) for p in ideal_angles]
+            0, 2*pi*(1 - 1/N), N))
+        return [(round(bigR*math.cos(p + rot) + center[0]),
+                 round(bigR*math.sin(p + rot) + center[1]), smallR) for p in ideal_angles]
 
     def fits_circle(points, center, rad, thresh):
         fits = True
@@ -180,17 +182,17 @@ class Well_Detector():
         b = np.array(b)
         params = np.linalg.lstsq(A, b, rcond=None)
 
-        centre = (params[0][0]/2, params[0][1]/2)
+        center = (params[0][0]/2, params[0][1]/2)
         rad = math.sqrt(4*params[0][2] + params[0][1]**2 + params[0][0]**2)/2
 
-        angles = [math.atan2(y - centre[1], x - centre[0])
+        angles = [math.atan2(y - center[1], x - center[0])
                   for (x, y) in points]
         ideal_angles = list(np.linspace(0, 2*pi*(1 - 1/N), N))
 
         diff_list = [x - y for x in angles for y in ideal_angles]
         rot = np.mean(diff_list) + pi/N
 
-        return centre, rad, rot
+        return center, rad, rot
 
     def store_well_loc(circles):
         circle_loc = {}
