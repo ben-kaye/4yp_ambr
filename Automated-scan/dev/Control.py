@@ -4,6 +4,7 @@ import cv2
 from Detect import Well_Detector
 import numpy as np
 from os.path import exists
+import re
 
 
 class Controller:
@@ -61,14 +62,17 @@ class Controller:
         self.wells = Well_Detector.read_well_loc()
 
     def process_scan(self, im, dateTaken):
+
+        im_write = False
+
         condensed_im = Controller.crop_ims(self.wells, im)
         densities = [self.avg_well(i) for i in condensed_im]
         self.data.append((densities, dateTaken))
 
-        write_im = np.hstack(condensed_im)
-        # write to file
-        cv2.imwrite('./Experiment-processed/wells_' +
-                    str(self.current_index) + '.png', write_im)
+        if im_write:
+            write_im = np.hstack(condensed_im)
+            cv2.imwrite('./Experiment-processed/wells_' +
+                        str(self.current_index) + '.png', write_im)
 
     def read_im(self, path):
         return cv2.imread(path)
@@ -101,13 +105,21 @@ class Controller:
         return np.array(mask)/f
 
     def write_data(self):
+
+        current_data = str(self.data[-1][0])
+        pattern = r'[\[\]\(\)]'
+        print_data = re.sub(pattern, '', current_data)
+
         with open('./Experiment-processed/base.csv', 'a') as p:
-            p.writelines(str(self.data[-1][0][0]) + '\n')
+            p.writelines(print_data + '\n')
 
     def avg_well(self, well_im):
         (x, y, z) = np.shape(well_im)
 
         avg = np.zeros((3,))
+
+        # TODO THIS MAY BE WRONG AS IM[Y][X]
+
         for u in range(x):
             for v in range(y):
                 avg += well_im[u][v] * self.mask[x*u + v]

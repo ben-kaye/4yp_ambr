@@ -41,6 +41,14 @@ class Well_Detector():
             self.N_wells = settings["wells_per_cluster"]
             self.CRAD = settings["crad"]
 
+    def show_circs(self, im_name):
+        crc = self.find_circles(im_name)
+        output = cv2.imread(im_name)
+        for (x, y, r) in crc:
+            cv2.circle(output, (x, y), r, (0, 255, 0), 4)
+        cv2.imshow(output)
+        cv2.waitKey()
+
     def return_wells(self, im_name):
         crc = self.find_circles(im_name)
         self.extrapolate(crc)
@@ -77,6 +85,7 @@ class Well_Detector():
         fit_thresh = 2
         key_interval = 10
         sample_N = 3
+        rad_thresh = 10e-3
 
         points = [(x, y) for (x, y, r) in circles]
 
@@ -94,8 +103,17 @@ class Well_Detector():
                 centre[0], key_interval), Well_Detector.discretise(centre[1], key_interval))
 
             # does it match expected radius and are the points on a circle
-            if Well_Detector.approx_equal(rad, self.big_R, 10e-3) and Well_Detector.fits_circle(sample_points, centre, rad, fit_thresh):
 
+            valid_set = False
+
+            if Well_Detector.approx_equal(rad, self.big_R, rad_thresh):
+                if sample_N > 3:
+                    if Well_Detector.fits_circle(sample_points, centre, rad, fit_thresh):
+                        valid_set = True
+                else:
+                    valid_set = True
+
+            if valid_set:
                 if apr_c in final_points:
                     final_points[apr_c].extend(sample_points)
                 else:
@@ -110,8 +128,13 @@ class Well_Detector():
             # if len(f) > 4:
             z = list(dict.fromkeys(f))
             if len(z) > max_length:
-                max_length = len(z)
-                best_points = z
+
+                c1, r1, rot1 = Well_Detector.fit_circle(
+                    z, self.N_wells)
+
+                if Well_Detector.fits_circle(z, c1, r1, rot1, fit_thresh):
+                    max_length = len(z)
+                    best_points = z
 
         c_star, rad_star, rot_star = Well_Detector.fit_circle(
             best_points, self.N_wells)
@@ -156,6 +179,8 @@ class Well_Detector():
         return val < desired_val*(1 + error) and val > desired_val*(1 - error)
 
     def fit_circle(points, N):
+
+        # currently slightly bugged with the angle offset????
 
         # min norm circle fit
         x_list = [x for (x, y) in points]
