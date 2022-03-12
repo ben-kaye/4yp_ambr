@@ -11,12 +11,14 @@ import itertools
 
 import json
 
+
 class Well_Detector():
 
     # default settings!
 
     DPI = 300  # PPI
     CRAD = 38
+    big_R = 272
 
     HG_DP = 1.5  # 1/px inverse res, higher = better
     HG_MIN_DIST = 80  # px
@@ -37,7 +39,7 @@ class Well_Detector():
             self.HG_MIN_RAD = settings["hg_min_rad"]
             self.HG_MIN_DIST = settings["hg_min_dist"]
             self.N_wells = settings["wells_per_cluster"]
-            self.CRAD = settings["crad"]        
+            self.CRAD = settings["crad"]
 
     def return_wells(self, im_name):
         crc = self.find_circles(im_name)
@@ -45,7 +47,7 @@ class Well_Detector():
 
         output = cv2.imread(im_name)
         for (x, y, r) in self.wells:
-        # for (x,y,r) in crc:
+            # for (x,y,r) in crc:
             cv2.circle(output, (x, y), r, (0, 255, 0), 4)
 
         new_name = im_name[:-4] + 'post' + im_name[-4:]
@@ -56,9 +58,8 @@ class Well_Detector():
     def find_circles(self, im_name):
 
         image = cv2.imread(im_name)
-        
+
         image_processed = self.process_im(image)
-        
 
         circles = cv2.HoughCircles(image_processed, cv2.HOUGH_GRADIENT, self.HG_DP,
                                    self.HG_MIN_DIST, minRadius=self.HG_MIN_RAD, maxRadius=self.HG_MAX_RAD)
@@ -73,8 +74,11 @@ class Well_Detector():
         return gray
 
     def extrapolate(self, circles):
-        points = [(x, y) for (x, y, r) in circles]
+        fit_thresh = 1
+        key_interval = 5
+        sample_N = 4
 
+        points = [(x, y) for (x, y, r) in circles]
 
         c_star = 0
         rot_star = 0
@@ -82,18 +86,20 @@ class Well_Detector():
 
         final_points = {}
 
-        for sample_points in itertools.combinations(points, 4):
-            centre, rad, rot = Well_Detector.fit_circle(sample_points, self.N_wells)
+        for sample_points in itertools.combinations(points, sample_N):
+            centre, rad, rot = Well_Detector.fit_circle(
+                sample_points, self.N_wells)
 
+            apr_c = (Well_Detector.discretise(
+                centre[0], key_interval), Well_Detector.discretise(centre[1], key_interval))
 
-            apr_c = (round(centre[0]), round(centre[1]))
+            # does it match expected radius and are the points on a circle
+            if Well_Detector.approx_equal(rad, self.big_R, 5e-3) and Well_Detector.fits_circle(sample_points, centre, rad, fit_thresh):
 
-            if Well_Detector.approx_equal(rad, 271, 5e-3):
                 if apr_c in final_points:
                     final_points[apr_c].extend(sample_points)
                 else:
                     final_points[apr_c] = list(sample_points)
-
 
         max_length = 0
 
@@ -101,28 +107,46 @@ class Well_Detector():
         for k in final_points:
             f = final_points[k]
 
-            if len(f) > 4:
-                z = list(dict.fromkeys(f))
-                if len(z) > max_length:
-                    max_length = len(z)
-                    best_points = z
+            # if len(f) > 4:
+            z = list(dict.fromkeys(f))
+            if len(z) > max_length:
+                max_length = len(z)
+                best_points = z
 
         # fit_points = list(dict.fromkeys(final_points))
 
-
         # self.wells = [(x,y, self.CRAD) for (x,y) in best_points ]
-        
-        c_star, rad_star, rot_star = Well_Detector.fit_circle(best_points,self.N_wells)
 
-        rot_star -= pi/self.N_wells
+        c_star, rad_star, rot_star = Well_Detector.fit_circle(
+            best_points, self.N_wells)
 
-       
+        # rot_star -= pi/self.N_wells
 
         ideal_angles = list(np.linspace(
             0, 2*pi*(1 - 1/self.N_wells), self.N_wells))
 
         self.wells = [(round(rad_star*math.cos(p + rot_star) + c_star[0]),
                        round(rad_star*math.sin(p + rot_star) + c_star[1]), self.CRAD) for p in ideal_angles]
+
+    def fits_circle(points, center, rad, thresh):
+        fits = True
+
+        for (x, y) in points:
+            u = x - center[0]
+            v = y - center[1]
+
+            ang_a = 2*math.atan((math.sqrt(u**2 + v**2)-u)/v)
+            ang_b = 2*math.atan((-math.sqrt(u**2 + v**2)-u)/v)
+            dist2_a = (u - rad*math.cos(ang_a))**2 + (v - rad*math.sin(ang_a))
+            dist2_b = (u - rad*math.cos(ang_b))**2 + (v - rad*math.sin(ang_b))
+
+            if min(dist2_a, dist2_b) > thresh ^ 2:
+                fits = False
+
+        return fits
+
+    def discretise(val, interval):
+        return round(val - val % interval)
 
     def approx_equal(val, desired_val, error):
         return val < desired_val*(1 + error) and val > desired_val*(1 - error)
