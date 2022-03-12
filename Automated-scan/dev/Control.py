@@ -1,6 +1,6 @@
 from time import sleep, time
 import cv2
-import exifread
+# import exifread
 from Detect import Well_Detector
 import numpy as np
 
