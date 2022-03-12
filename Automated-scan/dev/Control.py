@@ -3,12 +3,13 @@ import cv2
 # import exifread
 from Detect import Well_Detector
 import numpy as np
-
+from os.path import exists
 
 class Controller:
 
     current_index = 0
     inpath = './Experiment-data/scan_'
+    ft = '.bmp'
     poll_time = 10
     wells = None
     data = []
@@ -18,39 +19,38 @@ class Controller:
 
     R = 38
 
+    exp_running = True
+
     def __init__(self):
         self.mask = self.compute_mask()
 
-    def next_scan(self, abort=False):
+    def run_control(self):
+        while self.exp_running:
+            t_start = time()
+            self.read_scan()
+            t_delta = time() - t_start
 
-        path_file = self.inpath + str(self.current_index) + '.bmp'
+            if ~exists(self.get_path(self.current_index)) & (t_delta < self.poll_time):
+                sleep(self.poll_time - t_delta)
 
-        exists = False
+    def get_path(self,idx):
+        return self.inpath + str(idx) + self.ft
+
+    def read_scan(self, abort=False):
+
+        path_file = self.get_path(self.current_index)
+
+        exists = exists(path_file)
         dateTaken = None
+        im = None
 
-        # with open(path_file, 'rb') as fh:
-        #     tags = exifread.process_file(fh, stop_tag="EXIF DateTimeOriginal")
-        #     if tags:
-        #         dateTaken = tags["EXIF DateTimeOriginal"]
-
-        #     exists = True  # is this safe??? TODOs
-
-        im = self.read_im(path_file)
-
-        t_start = time()
+        if exists:
+            im = self.read_im(path_file)
 
         if im is not None:
             self.process_scan(im, dateTaken)
             self.write_data()
             self.current_index += 1
-
-        t_delta = time() - t_start
-
-        if (t_delta < self.poll_time):
-            sleep(self.poll_time - t_delta)
-
-        if not abort:
-            self.next_scan()
 
     def recover_wells(self, im_path):
         WF = Well_Detector()
