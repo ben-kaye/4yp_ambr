@@ -74,9 +74,9 @@ class Well_Detector():
         return gray
 
     def extrapolate(self, circles):
-        fit_thresh = 1
+        fit_thresh = 2
         key_interval = 5
-        sample_N = 4
+        sample_N = 3
 
         points = [(x, y) for (x, y, r) in circles]
 
@@ -94,7 +94,7 @@ class Well_Detector():
                 centre[0], key_interval), Well_Detector.discretise(centre[1], key_interval))
 
             # does it match expected radius and are the points on a circle
-            if Well_Detector.approx_equal(rad, self.big_R, 5e-3) and Well_Detector.fits_circle(sample_points, centre, rad, fit_thresh):
+            if Well_Detector.approx_equal(rad, self.big_R, 10e-3) and Well_Detector.fits_circle(sample_points, centre, rad, fit_thresh):
 
                 if apr_c in final_points:
                     final_points[apr_c].extend(sample_points)
@@ -137,10 +137,12 @@ class Well_Detector():
 
             ang_a = 2*math.atan((math.sqrt(u**2 + v**2)-u)/v)
             ang_b = 2*math.atan((-math.sqrt(u**2 + v**2)-u)/v)
-            dist2_a = (u - rad*math.cos(ang_a))**2 + (v - rad*math.sin(ang_a))
-            dist2_b = (u - rad*math.cos(ang_b))**2 + (v - rad*math.sin(ang_b))
+            dist2_a = (u - rad*math.cos(ang_a))**2 + \
+                (v - rad*math.sin(ang_a))**2
+            dist2_b = (u - rad*math.cos(ang_b))**2 + \
+                (v - rad*math.sin(ang_b))**2
 
-            if min(dist2_a, dist2_b) > thresh ^ 2:
+            if min(dist2_a, dist2_b) > thresh ** 2:
                 fits = False
 
         return fits

@@ -3,9 +3,9 @@ from Detect import Well_Detector
 
 
 # WD = Well_Detector()
-# Well_Detector.store_well_loc(WD.return_wells('./Automated-scan/dev/scan_44.bmp'))
+# Well_Detector.store_well_loc(WD.return_wells('./Automated-scan/dev/scan_2.bmp'))
 
 CT = Controller()
 CT.recover_wells()
 
-CT.next_scan(abort=False)  
+CT.read_scan(abort=False)  
