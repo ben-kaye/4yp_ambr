@@ -8,4 +8,4 @@ from Detect import Well_Detector
 CT = Controller()
 CT.recover_wells()
 
-CT.read_scan(abort=False)  
+CT.run_control(abort=False)  

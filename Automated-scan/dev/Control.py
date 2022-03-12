@@ -40,7 +40,7 @@ class Controller:
 
         path_file = self.get_path(self.current_index)
 
-        exists = exists(path_file)
+        exists = self.exists(path_file)
         dateTaken = None
         im = None
 
