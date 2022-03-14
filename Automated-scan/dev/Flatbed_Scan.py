@@ -7,7 +7,7 @@ import os
 class SC:
     scan_index = 0  # current scan index
     # out_path = './Automated-scan/Scans/'
-    out_path = 'Automated-scan/Experiment-data/'
+    out_path = './Experiment-data/'
     name_conv = 'scan_'
     filetype = '.bmp'
     wait_time = 60  # seconds
@@ -19,6 +19,11 @@ class SC:
     dpi = 300
 
     max_scans = 1440
+
+    def __init__(self, t_scan=60):
+        if t_scan < 20:
+            print('Warning: scans take between 10 & 15s')
+        self.wait_time = t_scan
 
     def take_scan(self):
         success = False
@@ -39,7 +44,7 @@ class SC:
             self.scan_index += 1
         else:
 
-            delta_time = start_time - time()
+            delta_time = time() - start_time
             remainder = max(self.wait_time - delta_time, 0)
             sleep(min(self.wait_time, remainder))
 
@@ -57,7 +62,10 @@ class SC:
 
             self.take_scan()
 
-            delta_time = start_time - time()
+            delta_time =  time() - start_time
+
+            # print(delta_time)
+            
             remainder = max(self.wait_time - delta_time, 0)
             sleep(min(self.wait_time, remainder))
 
