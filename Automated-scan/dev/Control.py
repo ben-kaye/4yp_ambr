@@ -27,6 +27,15 @@ class Controller:
         self.mask = self.compute_mask()
 
     def run_control(self):
+
+
+        cols = ['w' + str(k) + 'd' for k in range(1,13) ]
+        cols.extend(['w' + str(k) + 'c' for k in range(1,13)])
+        pattern = r'[\[\]\(\)\']'
+        print_data = re.sub(pattern, '', str(cols))
+        with open('./Experiment-processed/base.csv', 'w') as p:
+            p.writelines(print_data + '\n')
+
         while self.exp_running:
             t_start = time()
             self.read_scan()
@@ -66,8 +75,10 @@ class Controller:
         im_write = False
 
         condensed_im = Controller.crop_ims(self.wells, im)
-        densities = [self.avg_well(i) for i in condensed_im]
-        self.data.append((densities, dateTaken))
+        data_at_t = [self.avg_well(i) for i in condensed_im]
+        # self.data.append((densities, dateTaken))
+
+        self.data.append(data_at_t)
 
         if im_write:
             write_im = np.hstack(condensed_im)
@@ -106,9 +117,16 @@ class Controller:
 
     def write_data(self):
 
-        current_data = str(self.data[-1][0])
-        pattern = r'[\[\]\(\)]'
-        print_data = re.sub(pattern, '', current_data)
+        next_datum = self.data[-1]
+        dens, color = list(zip(*next_datum))
+
+        line = []
+        line.extend(dens)
+        line.extend(color)
+
+
+        pattern = r'[\[\]\(\)\']'
+        print_data = re.sub(pattern, '', str(line))
 
         with open('./Experiment-processed/base.csv', 'a') as p:
             p.writelines(print_data + '\n')
@@ -122,12 +140,12 @@ class Controller:
 
         for u in range(x):
             for v in range(y):
-                avg += well_im[u][v] * self.mask[x*u + v]
+                avg += well_im[v][u] * self.mask[x*u + v]
 
         pixel = avg.astype(np.single).reshape((1, 1, 3))
         density = cv2.cvtColor(pixel, cv2.COLOR_RGB2GRAY)[0, 0]
 
         cols = [hex(round(w)) for w in list(avg)]
-        hex_code = cols[0] + cols[1][2:] + cols[2][2:]
+        colorhex = '#'+str.upper(cols[0][2:] + cols[1][2:] + cols[2][2:])
 
-        return (density, hex_code)
+        return (density, colorhex)
