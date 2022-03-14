@@ -41,6 +41,14 @@ class Well_Detector():
             self.N_wells = settings["wells_per_cluster"]
             self.CRAD = settings["crad"]
 
+    def show_circs(self, im_name):
+        crc = self.find_circles(im_name)
+        output = cv2.imread(im_name)
+        for (x, y, r) in crc:
+            cv2.circle(output, (x, y), r, (0, 255, 0), 4)
+        cv2.imshow(output)
+        cv2.waitKey()
+
     def return_wells(self, im_name):
         crc = self.find_circles(im_name)
         self.extrapolate(crc)
@@ -74,9 +82,10 @@ class Well_Detector():
         return gray
 
     def extrapolate(self, circles):
-        fit_thresh = 1
-        key_interval = 5
-        sample_N = 4
+        fit_thresh = 2
+        key_interval = 10
+        sample_N = 3
+        rad_thresh = 10e-3
 
         points = [(x, y) for (x, y, r) in circles]
 
@@ -94,8 +103,17 @@ class Well_Detector():
                 centre[0], key_interval), Well_Detector.discretise(centre[1], key_interval))
 
             # does it match expected radius and are the points on a circle
-            if Well_Detector.approx_equal(rad, self.big_R, 5e-3) and Well_Detector.fits_circle(sample_points, centre, rad, fit_thresh):
 
+            valid_set = False
+
+            if Well_Detector.approx_equal(rad, self.big_R, rad_thresh):
+                if sample_N > 3:
+                    if Well_Detector.fits_circle(sample_points, centre, rad, fit_thresh):
+                        valid_set = True
+                else:
+                    valid_set = True
+
+            if valid_set:
                 if apr_c in final_points:
                     final_points[apr_c].extend(sample_points)
                 else:
@@ -110,23 +128,30 @@ class Well_Detector():
             # if len(f) > 4:
             z = list(dict.fromkeys(f))
             if len(z) > max_length:
-                max_length = len(z)
-                best_points = z
 
-        # fit_points = list(dict.fromkeys(final_points))
+                c1, r1, rot1 = Well_Detector.fit_circle(
+                    z, self.N_wells)
 
-        # self.wells = [(x,y, self.CRAD) for (x,y) in best_points ]
+                if Well_Detector.fits_circle(z, c1, r1, rot1, fit_thresh):
+                    max_length = len(z)
+                    best_points = z
 
         c_star, rad_star, rot_star = Well_Detector.fit_circle(
             best_points, self.N_wells)
 
-        # rot_star -= pi/self.N_wells
+        self.wells = Well_Detector.recover_points(
+            c_star, rad_star, rot_star, self.CRAD, self.N_wells)
 
+        print('circs id')
+
+        # self.wells = [(x, y, self.CRAD) for (x, y) in best_points]
+        # self.wells = [(x, y, self.CRAD) for (x, y) in points]
+
+    def recover_points(center, bigR, rot, smallR, N):
         ideal_angles = list(np.linspace(
-            0, 2*pi*(1 - 1/self.N_wells), self.N_wells))
-
-        self.wells = [(round(rad_star*math.cos(p + rot_star) + c_star[0]),
-                       round(rad_star*math.sin(p + rot_star) + c_star[1]), self.CRAD) for p in ideal_angles]
+            0, 2*pi*(1 - 1/N), N))
+        return [(round(bigR*math.cos(p + rot) + center[0]),
+                 round(bigR*math.sin(p + rot) + center[1]), smallR) for p in ideal_angles]
 
     def fits_circle(points, center, rad, thresh):
         fits = True
@@ -137,10 +162,12 @@ class Well_Detector():
 
             ang_a = 2*math.atan((math.sqrt(u**2 + v**2)-u)/v)
             ang_b = 2*math.atan((-math.sqrt(u**2 + v**2)-u)/v)
-            dist2_a = (u - rad*math.cos(ang_a))**2 + (v - rad*math.sin(ang_a))
-            dist2_b = (u - rad*math.cos(ang_b))**2 + (v - rad*math.sin(ang_b))
+            dist2_a = (u - rad*math.cos(ang_a))**2 + \
+                (v - rad*math.sin(ang_a))**2
+            dist2_b = (u - rad*math.cos(ang_b))**2 + \
+                (v - rad*math.sin(ang_b))**2
 
-            if min(dist2_a, dist2_b) > thresh ^ 2:
+            if min(dist2_a, dist2_b) > thresh ** 2:
                 fits = False
 
         return fits
@@ -152,6 +179,8 @@ class Well_Detector():
         return val < desired_val*(1 + error) and val > desired_val*(1 - error)
 
     def fit_circle(points, N):
+
+        # currently slightly bugged with the angle offset????
 
         # min norm circle fit
         x_list = [x for (x, y) in points]
@@ -178,17 +207,17 @@ class Well_Detector():
         b = np.array(b)
         params = np.linalg.lstsq(A, b, rcond=None)
 
-        centre = (params[0][0]/2, params[0][1]/2)
+        center = (params[0][0]/2, params[0][1]/2)
         rad = math.sqrt(4*params[0][2] + params[0][1]**2 + params[0][0]**2)/2
 
-        angles = [math.atan2(y - centre[1], x - centre[0])
+        angles = [math.atan2(y - center[1], x - center[0])
                   for (x, y) in points]
         ideal_angles = list(np.linspace(0, 2*pi*(1 - 1/N), N))
 
         diff_list = [x - y for x in angles for y in ideal_angles]
         rot = np.mean(diff_list) + pi/N
 
-        return centre, rad, rot
+        return center, rad, rot
 
     def store_well_loc(circles):
         circle_loc = {}
