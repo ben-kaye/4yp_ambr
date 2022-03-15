@@ -10,7 +10,8 @@ import re
 class Controller:
 
     current_index = 0
-    inpath = './Experiment-data/scan_'
+    data_path = './Experiment-data/scan_'
+    out_dir = './Experiment-processed/'
     ft = '.bmp'
     poll_time = 10
     wells = None
@@ -23,17 +24,25 @@ class Controller:
 
     exp_running = True
 
-    def __init__(self):
+    def __init__(self, data_folder='Experiment-data', out_folder='Experiment-processed'):
+
+        self.data_path = './' + data_folder + '/scan_'
+        self.out_dir = './' + out_folder + '/'
+
         self.mask = self.compute_mask()
 
     def run_control(self):
 
-
-        cols = ['w' + str(k) + 'd' for k in range(1,13) ]
-        cols.extend(['w' + str(k) + 'c' for k in range(1,13)])
+        cols = ['w' + str(k) for k in range(1, 13)]
+        # cols.extend(['w' + str(k) + 'c' for k in range(1, 13)])
         pattern = r'[\[\]\(\)\']'
         print_data = re.sub(pattern, '', str(cols))
-        with open('./Experiment-processed/base.csv', 'w') as p:
+
+        with open(self.out_dir + 'exp_r.csv', 'w') as p:
+            p.writelines(print_data + '\n')
+        with open(self.out_dir + 'exp_g.csv', 'w') as p:
+            p.writelines(print_data + '\n')
+        with open(self.out_dir + 'exp_b.csv', 'w') as p:
             p.writelines(print_data + '\n')
 
         while self.exp_running:
@@ -45,7 +54,7 @@ class Controller:
                 sleep(self.poll_time - t_delta)
 
     def get_path(self, idx):
-        return self.inpath + str(idx) + self.ft
+        return self.data_path + str(idx) + self.ft
 
     def read_scan(self, abort=False):
 
@@ -82,8 +91,10 @@ class Controller:
 
         if im_write:
             write_im = np.hstack(condensed_im)
-            cv2.imwrite('./Experiment-processed/wells_' +
-                        str(self.current_index) + '.png', write_im)
+
+            path = self.out_dir + 'wells_' + str(self.current_index) + '.png'
+
+            cv2.imwrite(path, write_im)
 
     def read_im(self, path):
         return cv2.imread(path)
@@ -118,18 +129,27 @@ class Controller:
     def write_data(self):
 
         next_datum = self.data[-1]
-        dens, color = list(zip(*next_datum))
+        # dens, color = list(zip(*next_datum))
 
-        line = []
-        line.extend(dens)
-        line.extend(color)
+        r, g, b = list(zip(*next_datum))
 
+        # line = []
+        # line.extend(dens)
+        # line.extend(color)
 
         pattern = r'[\[\]\(\)\']'
-        print_data = re.sub(pattern, '', str(line))
+        r_line = re.sub(pattern, '', str(r))
+        g_line = re.sub(pattern, '', str(g))
+        b_line = re.sub(pattern, '', str(b))
 
-        with open('./Experiment-processed/base.csv', 'a') as p:
-            p.writelines(print_data + '\n')
+        with open(self.out_dir + 'exp_r.csv', 'a') as p:
+            p.writelines(r_line + '\n')
+
+        with open(self.out_dir + 'exp_g.csv', 'a') as p:
+            p.writelines(g_line + '\n')
+
+        with open(self.out_dir + 'exp_b.csv', 'a') as p:
+            p.writelines(b_line + '\n')
 
     def avg_well(self, well_im):
         (x, y, z) = np.shape(well_im)
@@ -148,4 +168,4 @@ class Controller:
         cols = [hex(round(w)) for w in list(avg)]
         colorhex = '#'+str.upper(cols[0][2:] + cols[1][2:] + cols[2][2:])
 
-        return (density, colorhex)
+        return list(avg)
