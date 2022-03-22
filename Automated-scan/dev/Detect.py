@@ -217,8 +217,6 @@ class Well_Detector():
 
         sep = 2*pi/N
 
-        # angles = [(r + 2*pi) % sep if r < 0 else r % sep
-                #    for r in raw_angles]
         angles = []
         for r in raw_angles:
             r_norm = r + 2*pi if r < 0 else r
@@ -228,7 +226,6 @@ class Well_Detector():
                 res -= sep
             
             angles.append(res)
-        
 
         rot = np.mean(angles)
 
