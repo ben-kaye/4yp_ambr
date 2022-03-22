@@ -58,7 +58,7 @@ class Well_Detector():
             # for (x,y,r) in crc:
             cv2.circle(output, (x, y), r, (0, 255, 0), 4)
 
-        new_name = im_name[:-4] + 'post' + im_name[-4:]
+        new_name = im_name[:-4] + '_post' + im_name[-4:]
         cv2.imwrite(new_name, output)
 
         return self.wells
@@ -142,7 +142,7 @@ class Well_Detector():
         self.wells = Well_Detector.recover_points(
             c_star, rad_star, rot_star, self.CRAD, self.N_wells)
 
-        print('circs id')
+        print('wells detected: '+str(len(best_points)))
 
         # self.wells = [(x, y, self.CRAD) for (x, y) in best_points]
         # self.wells = [(x, y, self.CRAD) for (x, y) in points]
@@ -210,13 +210,27 @@ class Well_Detector():
         center = (params[0][0]/2, params[0][1]/2)
         rad = math.sqrt(4*params[0][2] + params[0][1]**2 + params[0][0]**2)/2
 
-        angles = [ (math.atan2(y - center[1], x - center[0]) + 2*pi) % (2*pi/N)
-                  for (x, y) in points]
+        # angles =
+        raw_angles = [(math.atan2(y - center[1], x - center[0]))
+                for (x, y) in points]
 
-        # ideal_angles = list(np.linspace(0, 2*pi*(1 - 1/N), N))
-        # diff_list = [x - y for x in angles for y in ideal_angles]
 
-        rot = -np.mean(angles)
+        sep = 2*pi/N
+
+        # angles = [(r + 2*pi) % sep if r < 0 else r % sep
+                #    for r in raw_angles]
+        angles = []
+        for r in raw_angles:
+            r_norm = r + 2*pi if r < 0 else r
+            res = r_norm % sep
+
+            if res > sep/2:
+                res -= sep
+            
+            angles.append(res)
+        
+
+        rot = np.mean(angles)
 
         return center, rad, rot
 
