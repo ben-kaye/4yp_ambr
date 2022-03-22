@@ -132,7 +132,7 @@ class Well_Detector():
                 c1, r1, rot1 = Well_Detector.fit_circle(
                     z, self.N_wells)
 
-                if Well_Detector.fits_circle(z, c1, r1, rot1, fit_thresh):
+                if Well_Detector.fits_circle(z, c1, r1, fit_thresh):
                     max_length = len(z)
                     best_points = z
 
@@ -210,12 +210,13 @@ class Well_Detector():
         center = (params[0][0]/2, params[0][1]/2)
         rad = math.sqrt(4*params[0][2] + params[0][1]**2 + params[0][0]**2)/2
 
-        angles = [math.atan2(y - center[1], x - center[0])
+        angles = [ (math.atan2(y - center[1], x - center[0]) + 2*pi) % (2*pi/N)
                   for (x, y) in points]
-        ideal_angles = list(np.linspace(0, 2*pi*(1 - 1/N), N))
 
-        diff_list = [x - y for x in angles for y in ideal_angles]
-        rot = np.mean(diff_list) + pi/N
+        # ideal_angles = list(np.linspace(0, 2*pi*(1 - 1/N), N))
+        # diff_list = [x - y for x in angles for y in ideal_angles]
+
+        rot = -np.mean(angles)
 
         return center, rad, rot
 

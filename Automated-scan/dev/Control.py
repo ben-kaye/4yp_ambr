@@ -24,10 +24,12 @@ class Controller:
 
     exp_running = True
 
-    def __init__(self, data_folder='Experiment-data', out_folder='Experiment-processed'):
+    def __init__(self, start_index = 0, data_folder='Experiment-data', out_folder='Experiment-processed'):
 
         self.data_path = './' + data_folder + '/scan_'
         self.out_dir = './' + out_folder + '/'
+
+        self.current_index = start_index
 
         self.mask = self.compute_mask()
 
@@ -81,9 +83,9 @@ class Controller:
 
     def process_scan(self, im, dateTaken):
 
-        im_write = False
+        im_write = True
 
-        condensed_im = Controller.crop_ims(self.wells, im)
+        condensed_im = Controller.crop_ims(self.wells, im, mask=self.mask)
         data_at_t = [self.avg_well(i) for i in condensed_im]
         # self.data.append((densities, dateTaken))
 
@@ -92,19 +94,26 @@ class Controller:
         if im_write:
             write_im = np.hstack(condensed_im)
 
-            path = self.out_dir + 'wells_' + str(self.current_index) + '.png'
+            path = self.out_dir + 'ims/wells_' + str(self.current_index) + '.png'
 
             cv2.imwrite(path, write_im)
 
     def read_im(self, path):
         return cv2.imread(path)
 
-    def crop_ims(wells, image):
+    def crop_ims(wells, image, mask = []):
 
         well_ims = []
         for x, y, r in wells:
 
             sub_im = image[y-r:y+r, x-r:x+r]
+
+            imx, imy, z = np.shape(sub_im)
+
+            for u in range(imx):
+                for v in range(imy):
+                    if mask[imx*u + v] <= 0 :
+                        sub_im[v,u] = np.array([0,0,0], dtype=np.uint8)
 
             if sub_im.any():
                 well_ims.append(sub_im)
