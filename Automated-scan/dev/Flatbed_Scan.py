@@ -14,13 +14,19 @@ class SC:
     sc_name = b'EPSON Perfection V200'
     # frame = (3.1, 4, 5.8, 6.8) #
 
-    frame = (3.1, 4.8, 5.8, 7.5)
+    x0 = 2.9
+    y0 = 5.1
+    frame = (x0, y0, x0+2.6, y0+2.6) # x0 y0, x1 y1 from top left
     # frame = (0, 0, 8, 11) # A4 FRAME
     dpi = 300
 
-    max_scans = 1440
+    max_scans = 2000
 
-    def __init__(self, t_scan=60):
+    def __init__(self, t_scan=60, start_index=0, out_dir='./Experiment-data/'):
+
+        self.scan_index = start_index
+        self.out_path = out_dir
+        
         if t_scan < 20:
             print('Warning: scans take between 10 & 15s')
         self.wait_time = t_scan
