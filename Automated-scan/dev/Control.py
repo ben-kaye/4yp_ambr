@@ -6,6 +6,8 @@ import numpy as np
 from os.path import exists
 import re
 
+import os
+
 
 class Controller:
 
@@ -14,17 +16,22 @@ class Controller:
     out_dir = './Experiment-processed/'
     ft = '.bmp'
     poll_time = 10
+    im_write = True
     wells = None
     data = []
 
     radial_amount = 0.5  # [%]
     mask = []
 
+    # cwd = ''
+
     R = 38
 
     exp_running = True
 
-    def __init__(self, start_index = 0, data_folder='Experiment-data', out_folder='Experiment-processed'):
+    def __init__(self, start_index=0, data_folder='Experiment-data', out_folder='Experiment-processed'):
+
+        print('controller running from ' + os.getcwd())
 
         self.data_path = './' + data_folder + '/scan_'
         self.out_dir = './' + out_folder + '/'
@@ -39,6 +46,8 @@ class Controller:
         # cols.extend(['w' + str(k) + 'c' for k in range(1, 13)])
         pattern = r'[\[\]\(\)\']'
         print_data = re.sub(pattern, '', str(cols))
+
+        # print('writing with cwd ' + self.cwd)
 
         with open(self.out_dir + 'exp_r.csv', 'w') as p:
             p.writelines(print_data + '\n')
@@ -68,8 +77,12 @@ class Controller:
 
         if file_exists:
             im = self.read_im(path_file)
+        else:
+            print('data processing up to date')
 
         if im is not None:
+            dateTaken = os.path.getmtime(path_file)
+
             self.process_scan(im, dateTaken)
             self.write_data()
             self.current_index += 1
@@ -83,25 +96,28 @@ class Controller:
 
     def process_scan(self, im, dateTaken):
 
-        im_write = True
-
         condensed_im = Controller.crop_ims(self.wells, im, mask=self.mask)
         data_at_t = [self.avg_well(i) for i in condensed_im]
         # self.data.append((densities, dateTaken))
 
-        self.data.append(data_at_t)
+        # time_at_t
 
-        if im_write:
+        time_min = round(dateTaken/60, 2)
+
+        self.data.append((time_min, data_at_t))
+
+        if self.im_write:
             write_im = np.hstack(condensed_im)
 
-            path = self.out_dir + 'ims/wells_' + str(self.current_index) + '.png'
+            path = self.out_dir + 'ims/wells_' + \
+                str(self.current_index) + '.png'
 
             cv2.imwrite(path, write_im)
 
     def read_im(self, path):
         return cv2.imread(path)
 
-    def crop_ims(wells, image, mask = []):
+    def crop_ims(wells, image, mask=[]):
 
         well_ims = []
         for x, y, r in wells:
@@ -110,10 +126,10 @@ class Controller:
 
             imx, imy, z = np.shape(sub_im)
 
-            for u in range(imx):
-                for v in range(imy):
-                    if mask[imx*u + v] <= 0 :
-                        sub_im[v,u] = np.array([0,0,0], dtype=np.uint8)
+            # for u in range(imx):
+            # for v in range(imy):
+            # if mask[imx*u + v] <= 0 :
+            # sub_im[v,u] = np.array([0,0,0], dtype=np.uint8)
 
             if sub_im.any():
                 well_ims.append(sub_im)
@@ -138,18 +154,21 @@ class Controller:
     def write_data(self):
 
         next_datum = self.data[-1]
+
+        time = next_datum[0]
+        bgr = next_datum[1]
         # dens, color = list(zip(*next_datum))
 
-        r, g, b = list(zip(*next_datum))
+        b, g, r = list(zip(*bgr))
 
         # line = []
         # line.extend(dens)
         # line.extend(color)
 
         pattern = r'[\[\]\(\)\']'
-        r_line = re.sub(pattern, '', str(r))
-        g_line = re.sub(pattern, '', str(g))
-        b_line = re.sub(pattern, '', str(b))
+        r_line = str(time) + ',' + re.sub(pattern, '', str(r))
+        g_line = str(time) + ',' + re.sub(pattern, '', str(g))
+        b_line = str(time) + ',' + re.sub(pattern, '', str(b))
 
         with open(self.out_dir + 'exp_r.csv', 'a') as p:
             p.writelines(r_line + '\n')
