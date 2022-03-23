@@ -1,5 +1,3 @@
-% uiopen('C:\Users\benka\OneDrive - Nexus365\4YP\Unit tests\Exp-03-10\Part-A-Processed\base.csv',1)
-
 loc = 'D:\Ben-Kaye-4YP-Temp\Exp-22-03-ANALYSIS\';
 
 expr = readtable(append(loc,'exp_r.csv'));
@@ -17,10 +15,11 @@ time = (time - time(1))/60;
 density_raw = density_raw(reI,:);
 dens = density_raw - density_raw(1,:);
 
-% INDEX_OF_INTEREST = 3:427;
-% INDEX_OF_INTEREST = 3:size(density_raw,1);
+INDEX_OF_INTEREST = 3:427;
+INDEX_OF_INTEREST = 1108:size(dens,1);
 
-% density_raw = density_raw(INDEX_OF_INTEREST,:);
+dens = dens(INDEX_OF_INTEREST,:) - dens(INDEX_OF_INTEREST(1),:);
+time = time(INDEX_OF_INTEREST) - time(INDEX_OF_INTEREST(1));
 
 
 sample_rate = 1; % per min
@@ -45,7 +44,7 @@ sample_rate = 1; % per min
 N=1;
 NL = numel(time);
 
-K = 1;
+K = 10;
 
 MA = movmean(dens,K);
 diff = dens(2:end,:) - dens(1:end-1,:);
