@@ -24,7 +24,7 @@ class Controller:
     mask = []
 
     # cwd = ''
-
+    N_wells = 12
     R = 38
 
     exp_running = True
@@ -86,9 +86,11 @@ class Controller:
         if im is not None:
             dateTaken = os.path.getmtime(path_file)
 
-            self.process_scan(im, dateTaken)
-            self.write_data()
-            self.current_index += 1
+            success = self.process_scan(im, dateTaken)
+
+            if success:
+                self.write_data()
+                self.current_index += 1
 
     def recover_wells(self, im_path):
         WF = Well_Detector()
@@ -100,6 +102,10 @@ class Controller:
     def process_scan(self, im, dateTaken):
 
         condensed_im = Controller.crop_ims(self.wells, im, mask=self.mask)
+
+        if len(condensed_im) < self.N_wells:
+            return False
+
         data_at_t = [self.avg_well(i) for i in condensed_im]
         # self.data.append((densities, dateTaken))
 
@@ -116,6 +122,8 @@ class Controller:
                 str(self.current_index) + '.png'
 
             cv2.imwrite(path, write_im)
+
+        return True
 
     def read_im(self, path):
         return cv2.imread(path)
