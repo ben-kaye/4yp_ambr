@@ -2,26 +2,31 @@
 
 loc = 'D:\Ben-Kaye-4YP-Temp\Exp-22-03-ANALYSIS\';
 
-
-
 expr = readtable(append(loc,'exp_r.csv'));
 expg = readtable(append(loc,'exp_g.csv'));
-expb = readtable(append(loc,'exp_b.csv'));             
+expb = readtable(append(loc,'exp_b.csv'));  
+
 wells = [ 3 5 6 7 ];
-wells = 1:12;
+wells = 2:13;
+
 density_raw = [ expr{:,wells}, expg{:,wells}, expb{:,wells}] ;
+time_unordered = expr{:,1};
+[ time, reI] = sort(time_unordered);
 
+time = (time - time(1))/60;
+density_raw = density_raw(reI,:);
+dens = density_raw - density_raw(1,:);
 
+% INDEX_OF_INTEREST = 3:427;
+% INDEX_OF_INTEREST = 3:size(density_raw,1);
 
-INDEX_OF_INTEREST = 3:427;
-
-density_raw = density_raw(INDEX_OF_INTEREST,:);
+% density_raw = density_raw(INDEX_OF_INTEREST,:);
 
 
 sample_rate = 1; % per min
 
 
-time = linspace(0,length(density_raw)/60/sample_rate, length(density_raw)); % hrs
+% time = linspace(0,length(density_raw)/60/sample_rate, length(density_raw)); % hrs
 
 
 % figure(1)
@@ -37,12 +42,6 @@ time = linspace(0,length(density_raw)/60/sample_rate, length(density_raw)); % hr
 % end
 % hold off
 
-dens1 = density_raw - density_raw(1,:);
-
-
-dens = dens1;
-% dens = dens1 / 255;
-
 N=1;
 NL = numel(time);
 
@@ -54,11 +53,12 @@ diff = dens(2:end,:) - dens(1:end-1,:);
 s_dens = [ mean(MA(:,1:length(wells)),2), mean(MA(:,length(wells)+1:2*length(wells)),2), mean(MA(:,2*length(wells)+1:end),2)];
 
 figure(3)
-plot(1:size(s_dens,1),s_dens)
+plot(time,s_dens)
 colororder({'r','g','b'})
 legend('R avg','G avg', 'B avg')
 yline(0,'r--')
-
+xlabel('time (hrs)')
+ylabel('well mean intensity (px)')
 ylims = [ min(min(dens)), max(max(dens))];
 
 figure(2)
