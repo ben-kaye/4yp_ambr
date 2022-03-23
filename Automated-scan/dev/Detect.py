@@ -44,8 +44,10 @@ class Well_Detector():
     def show_circs(self, im_name):
         crc = self.find_circles(im_name)
         output = cv2.imread(im_name)
+        
         for (x, y, r) in crc:
             cv2.circle(output, (x, y), r, (0, 255, 0), 4)
+
         cv2.imshow(output)
         cv2.waitKey()
 
@@ -54,9 +56,16 @@ class Well_Detector():
         self.extrapolate(crc)
 
         output = cv2.imread(im_name)
+
+        index = 0
         for (x, y, r) in self.wells:
             # for (x,y,r) in crc:
             cv2.circle(output, (x, y), r, (0, 255, 0), 4)
+            
+            output = cv2.putText(output, str(
+                index), (x, y), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 3, cv2.LINE_AA)
+                
+            index += 1
 
         new_name = im_name[:-4] + '_post' + im_name[-4:]
         cv2.imwrite(new_name, output)
@@ -150,8 +159,8 @@ class Well_Detector():
     def recover_points(center, bigR, rot, smallR, N):
         ideal_angles = list(np.linspace(
             0, 2*pi*(1 - 1/N), N))
-        return [(round(bigR*math.cos(p + rot) + center[0]),
-                 round(bigR*math.sin(p + rot) + center[1]), smallR) for p in ideal_angles]
+        return [(round(bigR*math.cos(p + rot - pi/2) + center[0]),
+                 round(bigR*math.sin(p + rot- pi/2) + center[1]), smallR) for p in ideal_angles]
 
     def fits_circle(points, center, rad, thresh):
         fits = True
@@ -212,8 +221,7 @@ class Well_Detector():
 
         # angles =
         raw_angles = [(math.atan2(y - center[1], x - center[0]))
-                for (x, y) in points]
-
+                      for (x, y) in points]
 
         sep = 2*pi/N
 
@@ -224,7 +232,7 @@ class Well_Detector():
 
             if res > sep/2:
                 res -= sep
-            
+
             angles.append(res)
 
         rot = np.mean(angles)
