@@ -40,24 +40,38 @@ class Controller:
 
         self.mask = self.compute_mask()
 
-    def run_control(self):
+    def run_control(self, overwrite = True):
 
+        if overwrite:
+            
+            if self.current_index > 0:
+                print('WARNING start index (' + str(self.current_index) + ') NOT 0, ABORTING')
+                return False
 
+            # self.current_index = 0
 
-        cols = ['w' + str(k) for k in range(1, 13)]
-        # cols.extend(['w' + str(k) + 'c' for k in range(1, 13)])
-        pattern = r'[\[\]\(\)\']'
-        print_data = 'time,' + re.sub(pattern, '', str(cols))
+            cols = ['w' + str(k) for k in range(1, 13)]
+            # cols.extend(['w' + str(k) + 'c' for k in range(1, 13)])
+            pattern = r'[\[\]\(\)\']'
+            print_data = 'time,' + re.sub(pattern, '', str(cols))
 
-        # print('writing with cwd ' + self.cwd)
+            # print('writing with cwd ' + self.cwd)
 
-        if self.current_index == 0:
             with open(self.out_dir + 'exp_r.csv', 'w') as p:
                 p.writelines(print_data + '\n')
             with open(self.out_dir + 'exp_g.csv', 'w') as p:
                 p.writelines(print_data + '\n')
             with open(self.out_dir + 'exp_b.csv', 'w') as p:
                 p.writelines(print_data + '\n')
+        else: 
+            row_count = 0
+            with open(self.out_dir +'exp_r.csv', 'r') as f:
+                row_count = sum(1 for line in f)
+
+            expected_idx = row_count - 1 # num rows - 1 as header col + want to be next idx
+            if expected_idx is not self.current_index:
+                self.current_index = expected_idx
+                print('WARNING start index (' + str(self.current_index) + ') replaced with ' + str(expected_idx))
 
         while self.exp_running:
             t_start = time()
@@ -106,7 +120,7 @@ class Controller:
         if len(condensed_im) < self.N_wells:
             return False
 
-        data_at_t = [self.avg_well(i) for i in condensed_im]
+        data_at_t = [[round(k,4) for k in self.avg_well(i)] for i in condensed_im]
         # self.data.append((densities, dateTaken))
 
         # time_at_t
