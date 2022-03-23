@@ -6,35 +6,58 @@ import numpy as np
 from os.path import exists
 import re
 
+import os
+
 
 class Controller:
 
     current_index = 0
-    inpath = './Experiment-data/scan_'
+    data_path = './Experiment-data/scan_'
+    out_dir = './Experiment-processed/'
     ft = '.bmp'
     poll_time = 10
+    im_write = True
     wells = None
     data = []
 
     radial_amount = 0.5  # [%]
     mask = []
 
+    # cwd = ''
+    N_wells = 12
     R = 38
 
     exp_running = True
 
-    def __init__(self):
+    def __init__(self, start_index=0, data_folder='Experiment-data', out_folder='Experiment-processed'):
+
+        print('controller running from ' + os.getcwd())
+
+        self.data_path = './' + data_folder + '/scan_'
+        self.out_dir = './' + out_folder + '/'
+
+        self.current_index = start_index
+
         self.mask = self.compute_mask()
 
     def run_control(self):
 
 
-        cols = ['w' + str(k) + 'd' for k in range(1,13) ]
-        cols.extend(['w' + str(k) + 'c' for k in range(1,13)])
+
+        cols = ['w' + str(k) for k in range(1, 13)]
+        # cols.extend(['w' + str(k) + 'c' for k in range(1, 13)])
         pattern = r'[\[\]\(\)\']'
-        print_data = re.sub(pattern, '', str(cols))
-        with open('./Experiment-processed/base.csv', 'w') as p:
-            p.writelines(print_data + '\n')
+        print_data = 'time,' + re.sub(pattern, '', str(cols))
+
+        # print('writing with cwd ' + self.cwd)
+
+        if self.current_index == 0:
+            with open(self.out_dir + 'exp_r.csv', 'w') as p:
+                p.writelines(print_data + '\n')
+            with open(self.out_dir + 'exp_g.csv', 'w') as p:
+                p.writelines(print_data + '\n')
+            with open(self.out_dir + 'exp_b.csv', 'w') as p:
+                p.writelines(print_data + '\n')
 
         while self.exp_running:
             t_start = time()
@@ -45,7 +68,7 @@ class Controller:
                 sleep(self.poll_time - t_delta)
 
     def get_path(self, idx):
-        return self.inpath + str(idx) + self.ft
+        return self.data_path + str(idx) + self.ft
 
     def read_scan(self, abort=False):
 
@@ -57,11 +80,17 @@ class Controller:
 
         if file_exists:
             im = self.read_im(path_file)
+        else:
+            print('data processing up to date')
 
         if im is not None:
-            self.process_scan(im, dateTaken)
-            self.write_data()
-            self.current_index += 1
+            dateTaken = os.path.getmtime(path_file)
+
+            success = self.process_scan(im, dateTaken)
+
+            if success:
+                self.write_data()
+                self.current_index += 1
 
     def recover_wells(self, im_path):
         WF = Well_Detector()
@@ -72,28 +101,46 @@ class Controller:
 
     def process_scan(self, im, dateTaken):
 
-        im_write = False
+        condensed_im = Controller.crop_ims(self.wells, im, mask=self.mask)
 
-        condensed_im = Controller.crop_ims(self.wells, im)
+        if len(condensed_im) < self.N_wells:
+            return False
+
         data_at_t = [self.avg_well(i) for i in condensed_im]
         # self.data.append((densities, dateTaken))
 
-        self.data.append(data_at_t)
+        # time_at_t
 
-        if im_write:
+        time_min = round(dateTaken/60, 2)
+
+        self.data.append((time_min, data_at_t))
+
+        if self.im_write:
             write_im = np.hstack(condensed_im)
-            cv2.imwrite('./Experiment-processed/wells_' +
-                        str(self.current_index) + '.png', write_im)
+
+            path = self.out_dir + 'ims/wells_' + \
+                str(self.current_index) + '.png'
+
+            cv2.imwrite(path, write_im)
+
+        return True
 
     def read_im(self, path):
         return cv2.imread(path)
 
-    def crop_ims(wells, image):
+    def crop_ims(wells, image, mask=[]):
 
         well_ims = []
         for x, y, r in wells:
 
             sub_im = image[y-r:y+r, x-r:x+r]
+
+            imx, imy, z = np.shape(sub_im)
+
+            # for u in range(imx):
+            # for v in range(imy):
+            # if mask[imx*u + v] <= 0 :
+            # sub_im[v,u] = np.array([0,0,0], dtype=np.uint8)
 
             if sub_im.any():
                 well_ims.append(sub_im)
@@ -118,18 +165,30 @@ class Controller:
     def write_data(self):
 
         next_datum = self.data[-1]
-        dens, color = list(zip(*next_datum))
 
-        line = []
-        line.extend(dens)
-        line.extend(color)
+        time = next_datum[0]
+        bgr = next_datum[1]
+        # dens, color = list(zip(*next_datum))
 
+        b, g, r = list(zip(*bgr))
+
+        # line = []
+        # line.extend(dens)
+        # line.extend(color)
 
         pattern = r'[\[\]\(\)\']'
-        print_data = re.sub(pattern, '', str(line))
+        r_line = str(time) + ',' + re.sub(pattern, '', str(r))
+        g_line = str(time) + ',' + re.sub(pattern, '', str(g))
+        b_line = str(time) + ',' + re.sub(pattern, '', str(b))
 
-        with open('./Experiment-processed/base.csv', 'a') as p:
-            p.writelines(print_data + '\n')
+        with open(self.out_dir + 'exp_r.csv', 'a') as p:
+            p.writelines(r_line + '\n')
+
+        with open(self.out_dir + 'exp_g.csv', 'a') as p:
+            p.writelines(g_line + '\n')
+
+        with open(self.out_dir + 'exp_b.csv', 'a') as p:
+            p.writelines(b_line + '\n')
 
     def avg_well(self, well_im):
         (x, y, z) = np.shape(well_im)
@@ -148,4 +207,4 @@ class Controller:
         cols = [hex(round(w)) for w in list(avg)]
         colorhex = '#'+str.upper(cols[0][2:] + cols[1][2:] + cols[2][2:])
 
-        return (density, colorhex)
+        return list(avg)
