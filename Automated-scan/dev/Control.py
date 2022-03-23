@@ -42,19 +42,22 @@ class Controller:
 
     def run_control(self):
 
+
+
         cols = ['w' + str(k) for k in range(1, 13)]
         # cols.extend(['w' + str(k) + 'c' for k in range(1, 13)])
         pattern = r'[\[\]\(\)\']'
-        print_data = re.sub(pattern, '', str(cols))
+        print_data = 'time,' + re.sub(pattern, '', str(cols))
 
         # print('writing with cwd ' + self.cwd)
 
-        with open(self.out_dir + 'exp_r.csv', 'w') as p:
-            p.writelines(print_data + '\n')
-        with open(self.out_dir + 'exp_g.csv', 'w') as p:
-            p.writelines(print_data + '\n')
-        with open(self.out_dir + 'exp_b.csv', 'w') as p:
-            p.writelines(print_data + '\n')
+        if self.current_index == 0:
+            with open(self.out_dir + 'exp_r.csv', 'w') as p:
+                p.writelines(print_data + '\n')
+            with open(self.out_dir + 'exp_g.csv', 'w') as p:
+                p.writelines(print_data + '\n')
+            with open(self.out_dir + 'exp_b.csv', 'w') as p:
+                p.writelines(print_data + '\n')
 
         while self.exp_running:
             t_start = time()
