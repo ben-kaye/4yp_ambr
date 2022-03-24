@@ -1,3 +1,4 @@
+import itertools
 from time import sleep, time
 import cv2
 # import exifread
@@ -51,24 +52,38 @@ class Controller:
         if overwrite:
             
             if self.current_index > 0:
-                print('WARNING start index (' + str(self.current_index) + ') NOT 0, ABORTING')
-                return False
+                print('WARNING start index (' + str(self.current_index) + ') NOT 0')
+                # return False
 
-            # self.current_index = 0
 
-            cols = ['w' + str(k) for k in range(1, 13)]
-            # cols.extend(['w' + str(k) + 'c' for k in range(1, 13)])
-            pattern = r'[\[\]\(\)\']'
-            print_data = 'time,' + re.sub(pattern, '', str(cols))
+                
+                path = self.out_dir+'exp_'
+                names = ['r','g','b']
 
-            # print('writing with cwd ' + self.cwd)
+                for n in names:
+                    data = []
+                    with open(path+n+'.csv','r') as f:
+                        data = f.readlines()[0:self.current_index]
 
-            with open(self.out_dir + 'exp_r.csv', 'w') as p:
-                p.writelines(print_data + '\n')
-            with open(self.out_dir + 'exp_g.csv', 'w') as p:
-                p.writelines(print_data + '\n')
-            with open(self.out_dir + 'exp_b.csv', 'w') as p:
-                p.writelines(print_data + '\n')
+                    with open(path+n+'.csv','w') as f:
+                        f.writelines(data)
+                
+
+            # self.current_index = 0s
+            else:
+                cols = ['w' + str(k) for k in range(1, 13)]
+                # cols.extend(['w' + str(k) + 'c' for k in range(1, 13)])
+                pattern = r'[\[\]\(\)\']'
+                print_data = 'time,' + re.sub(pattern, '', str(cols))
+
+                # print('writing with cwd ' + self.cwd)
+
+                with open(self.out_dir + 'exp_r.csv', 'w') as p:
+                    p.writelines(print_data + '\n')
+                with open(self.out_dir + 'exp_g.csv', 'w') as p:
+                    p.writelines(print_data + '\n')
+                with open(self.out_dir + 'exp_b.csv', 'w') as p:
+                    p.writelines(print_data + '\n')
         else: 
             row_count = 0
             with open(self.out_dir +'exp_r.csv', 'r') as f:
