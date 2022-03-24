@@ -23,7 +23,7 @@ class Controller:
 
     offset = (0,0)
     offsets = { # dict of index and offset:
-        1420: (0, 17)
+        1420: (0, -17)
     }
 
 
