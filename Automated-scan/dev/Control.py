@@ -20,6 +20,12 @@ class Controller:
     wells = None
     data = []
 
+    offset = (0,0)
+    offsets = { # dict of index and offset:
+        1420: (0, 17)
+    }
+
+
     radial_amount = 0.5  # [%]
     mask = []
 
@@ -88,6 +94,11 @@ class Controller:
 
         path_file = self.get_path(self.current_index)
 
+
+        # update offset if at shift
+        if self.current_index in self.offsets:
+            self.offset = self.offsets[self.current_index]
+
         file_exists = exists(path_file)
         dateTaken = None
         im = None
@@ -113,9 +124,29 @@ class Controller:
     def recover_wells(self):
         self.wells = Well_Detector.read_well_loc()
 
+    def find_offset(self, index):
+        rgbs = self.data[index][1]
+        
+        diffs = [0,0,0]
+
+        # TODO FINISH THIS
+
+        if max(abs(diffs)) > 4:
+            WD = Well_Detector()
+            new_wells = WD.return_wells(self.get_path(index))
+
+            loc_diffs = []
+            for i in range(len(self.wells)):
+                loc_diffs.append([ new_wells[i][0] - self.wells[i][0], new_wells[i][1] - self.wells[i][1] ])
+
+            
+
+        
+
+
     def process_scan(self, im, dateTaken):
 
-        condensed_im = Controller.crop_ims(self.wells, im, mask=self.mask)
+        condensed_im = self.crop_ims(im)
 
         if len(condensed_im) < self.N_wells:
             return False
@@ -142,18 +173,21 @@ class Controller:
     def read_im(self, path):
         return cv2.imread(path)
 
-    def crop_ims(wells, image, mask=[]):
+    def crop_ims(self, image):
 
         well_ims = []
-        for x, y, r in wells:
+        for x, y, r in self.wells:
 
-            sub_im = image[y-r:y+r, x-r:x+r]
+            xs = x + self.offset[0]
+            ys = y + self.offset[1]
+
+            sub_im = image[ys-r:ys+r, xs-r:xs+r]
 
             imx, imy, z = np.shape(sub_im)
 
             # for u in range(imx):
             # for v in range(imy):
-            # if mask[imx*u + v] <= 0 :
+            # if self.mask[imx*u + v] <= 0 :
             # sub_im[v,u] = np.array([0,0,0], dtype=np.uint8)
 
             if sub_im.any():
