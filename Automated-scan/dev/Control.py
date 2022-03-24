@@ -22,10 +22,11 @@ class Controller:
     data = []
 
     offset = (0,0)
-    offsets = { # dict of index and offset:
-        1417: (0, -17)
-    }
 
+    offsets = { # dict of index and offset:
+        1417: (0, -17),
+        2655: (0, -14)
+    }
 
     radial_amount = 0.5  # [%]
     mask = []
