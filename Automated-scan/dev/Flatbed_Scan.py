@@ -24,7 +24,7 @@ class SC:
     # frame = (0, 0, 8, 11) # A4 FRAME
     dpi = 300
 
-    max_scans = 2*1440
+    max_scans = 3*1440
 
     def __init__(self, overwrite = False, t_scan=60, start_index=0, out_dir='./Experiment-data/'):
 
@@ -61,10 +61,12 @@ class SC:
         start_time = time()
 
         try:
-            result = twain.acquire(self.get_filename(
+            result = twain.acquire(self.get_filename_sc(
             ), ds_name=self.sc_name, dpi=self.dpi, frame=self.frame, pixel_type='color')
 
             if result is not None:
+                os.rename(self.get_filename_sc(),self.get_filename())
+
                 success = True
         except Exception as e:
             print(e)
@@ -100,6 +102,9 @@ class SC:
 
     def get_filename(self):
         return self.out_path + self.name_conv + str(self.scan_index) + self.filetype
+
+    def get_filename_sc(self):
+        return self.out_path + self.name_conv +'_sc_'+ str(self.scan_index) + self.filetype
 
     def check_stop():
         stop_scan = Util.bin_read('stop_scan')
