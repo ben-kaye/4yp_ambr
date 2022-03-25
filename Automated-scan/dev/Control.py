@@ -22,11 +22,13 @@ class Controller:
     data = []
 
     offset = (0,0)
-
     offsets = { # dict of index and offset:
         1417: (0, -17),
-        2655: (0, -14)
+        # 2649: (0, -14),
+        2685: (0, -11), # up 11 from baseline
+        3910: (0, -16) # up 16 from baseline
     }
+
 
     radial_amount = 0.5  # [%]
     mask = []
@@ -45,6 +47,10 @@ class Controller:
         self.out_dir = './' + out_folder + '/'
 
         self.current_index = start_index
+
+        for k in self.offsets:
+            if self.current_index > k:
+                self.offset = self.offsets[k]
 
         self.mask = self.compute_mask()
 
