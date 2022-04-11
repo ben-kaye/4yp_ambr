@@ -1,13 +1,6 @@
-from concurrent.futures import process
-from inspect import stack
-import itertools
-from msilib.schema import Control, ControlCondition
-import queue
 from time import sleep, time
 import cv2
-from cv2 import split
 from cv2 import mean
-# import exifread
 from Detect import Well_Detector
 import numpy as np
 from os.path import exists
@@ -47,8 +40,12 @@ class Controller:
     }
 
     control_depth = 4
-    past_observation = []
+    observation_depth = 4
+    past_observation = [0 for k in range(observation_depth)]
+    zero_error_crossed = False
     error = [0,0]
+    control_set_point = 0.1
+    temp_control_list = []
 
     radial_amount = 0.5  # [%]
     mask = []
@@ -58,6 +55,7 @@ class Controller:
     R = 38
 
     intensity_baseline = 0
+    intensity_range = 20
 
     T_sample = 60  # [s]
 
@@ -95,40 +93,46 @@ class Controller:
                 os.mkdir(im_path)
 
     def run_online_controller(self):
-        pass
-
         # should include error mitigation in case of arduino disconnect.
 
-        ser = serial.Serial('/dev/ttyACM1', 9600)  # baudrate
+        # ser = serial.Serial('/dev/ttyACM1', 9600)  # baudrate
 
-        ser.write('000,1,')
+        # ser.write('000')
 
         self.process_loop(start_index=0, overwrite=True,
-                          func=self.control_observer_iter)
+                          post_process_func=self.control_observer_iter)
 
     def control_observer_iter(self):
 
-        # OBSERVER
-        p_error = self.run_observe_iter()
+        # OBSERVER 
+        p_error = self.control_set_point - self.run_observe_iter()  # note negative of normal error as controller has negative action
+
+        if not self.zero_error_crossed: # if set point changes, should reset to 0
+            if p_error > 0:
+                self.zero_error_crossed = True # prevents windup while controller inneffective due to saturation (0,inf)
 
         # CONTROLLER
 
         self.error = (p_error, self.error[1] + p_error/3600) # create error vector by integrating past value
 
-        dem = Controller.PI_controller(self.error)
+        dem = Controller.PI_controller(self.error, self.zero_error_crossed)
         self.past_demand = dem
         command = Controller.convert_demand(dem)
 
-        self.serial_connection.write(command)
+        # self.serial_connection.write(command)
+
+        self.temp_control_list.append(dem)
 
     def run_observe_iter(self):
         # create copy of last observations in case
         old_data = tuple(self.past_observation)
 
-        next_data_point = self.data[-1]  # assuming exactly T seconds later.
+        d = self.data[-1][1]  # assuming exactly T seconds later.
 
-        # average data
-        processed_data = []
+        k = *zip(*d),
+        i = (sum((sum(u)/len(u) for u in k[0:3]))/3 - self.intensity_baseline)/self.intensity_range # get saturation
+      
+        processed_data = i
 
         # filter data to generate intensity
         observed_data = processed_data
@@ -138,12 +142,18 @@ class Controller:
 
         return observed_data
 
-    def PI_controller(e_x):
+    def PI_controller(e_x, activate_integrator):
     # returns pump demand fraction from given error and its integral
 
         e, e_I = e_x
 
         ff = 37.3  # feed forward
+
+        prop_term = 300*e
+
+        integ_term = 700*e_I
+        if abs(integ_term) > 4e4: # 88 units on pump:
+            integ_term = 4e4 if integ_term > 0 else -4e4
 
         u = 300*e + 50*e_I + ff
 
@@ -151,8 +161,9 @@ class Controller:
 
         if p_demand >= 1:
             p_demand = 0.999
-        if p_demand <= -1:
-            p_demand = -0.999
+        
+        if p_demand < 0: # can't negatively pump
+            p_demand = 0
 
         return p_demand
 
@@ -160,13 +171,13 @@ class Controller:
     # take units umH2O & convert to pump fraction in (-1,1)
 
         # R = 59.8 # [um/(mL/hr)]
-        # Q = umH2O/R # [mL/hr]
-        # pump_factor = 91.7 # [(mL/hr)/(pump_fraction)]
+        # Q = umH2O/R # [mL/hr] flow IN ONE vessel
+        # pump_factor = 91.7/12 # [(mL/hr)/(pump_fraction)]
         # demand = Q*conv_factor
-        return umH2O/91.7/59.8 # pump fraction
+        return umH2O/457 # pump fraction
 
     def convert_demand(val):
-        dir_s = '1' if math.sign(val) > 0 else '0'
+        # dir_s = '1' if val > 0 else '0'
 
         v = abs(val)
 
@@ -178,7 +189,7 @@ class Controller:
         if len(ret) < 3:
             x = 3 - len(ret)
             ret = ret + '0'*x
-        return ret + ',' + dir_s + ','
+        return ret + ',' #+ dir_s + ',' omit direction as only want 1 way.
 
     def set_up_data(self, start_index, overwrite):
         names = self.data_files
@@ -235,8 +246,8 @@ class Controller:
             if new_data and post_process_func is not None:
                 if self.current_index == 1:
                     data = self.data[-1][1] 
-                    k = zip(*data)
-                    i = mean((mean(k)[0:3]))
+                    k = *zip(*data),
+                    i = sum((sum(u)/len(u) for u in k[0:3]))/3
                     self.intensity_baseline = i
 
                 post_process_func()
