@@ -147,7 +147,7 @@ class Controller:
 
         e, e_I = e_x
 
-        ff = 37.3  # feed forward
+        ff = 37.3 if e > 0 else 0 # feed forward, active when error +ve
 
         prop_term = 300*e
 
