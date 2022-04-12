@@ -1,12 +1,6 @@
-from concurrent.futures import process
-from inspect import stack
-import itertools
-from msilib.schema import Control, ControlCondition
-import queue
 from time import sleep, time
 import cv2
-from cv2 import split
-# import exifread
+from cv2 import mean
 from Detect import Well_Detector
 import numpy as np
 from os.path import exists
@@ -46,8 +40,12 @@ class Controller:
     }
 
     control_depth = 4
-    past_observation = []
-    control_data = []
+    observation_depth = 4
+    past_observation = [0 for k in range(observation_depth)]
+    zero_error_crossed = False
+    error = [0,0]
+    control_set_point = 0.1
+    temp_control_list = []
 
     radial_amount = 0.5  # [%]
     mask = []
@@ -55,6 +53,9 @@ class Controller:
     # cwd = ''
     N_wells = 12
     R = 38
+
+    intensity_baseline = 0
+    intensity_range = 20
 
     T_sample = 60  # [s]
 
@@ -92,32 +93,46 @@ class Controller:
                 os.mkdir(im_path)
 
     def run_online_controller(self):
-        pass
-
         # should include error mitigation in case of arduino disconnect.
 
-        ser = serial.Serial('/dev/ttyACM1', 9600)  # baudrate
+        # ser = serial.Serial('/dev/ttyACM1', 9600)  # baudrate
 
-        ser.write('000,1,')
+        # ser.write('000')
 
         self.process_loop(start_index=0, overwrite=True,
-                          func=self.control_observer_iter)
+                          post_process_func=self.control_observer_iter)
 
     def control_observer_iter(self):
-        # implement observation:
-        intensity_control_vals = self.run_observe_iter()
-        dem = Controller.PI_controller(intensity_control_vals)
+
+        # OBSERVER 
+        p_error = self.control_set_point - self.run_observe_iter()  # note negative of normal error as controller has negative action
+
+        if not self.zero_error_crossed: # if set point changes, should reset to 0
+            if p_error > 0:
+                self.zero_error_crossed = True # prevents windup while controller inneffective due to saturation (0,inf)
+
+        # CONTROLLER
+
+        self.error = (p_error, self.error[1] + p_error/3600) # create error vector by integrating past value
+
+        dem = Controller.PI_controller(self.error, self.zero_error_crossed)
+        self.past_demand = dem
         command = Controller.convert_demand(dem)
-        self.serial_connection.write(command)
+
+        # self.serial_connection.write(command)
+
+        self.temp_control_list.append(dem)
 
     def run_observe_iter(self):
         # create copy of last observations in case
         old_data = tuple(self.past_observation)
 
-        next_data_point = self.data[-1]  # assuming exactly T seconds later.
+        d = self.data[-1][1]  # assuming exactly T seconds later.
 
-        # average data
-        processed_data = []
+        k = *zip(*d),
+        i = (sum((sum(u)/len(u) for u in k[0:3]))/3 - self.intensity_baseline)/self.intensity_range # get saturation
+      
+        processed_data = i
 
         # filter data to generate intensity
         observed_data = processed_data
@@ -127,29 +142,42 @@ class Controller:
 
         return observed_data
 
-    def PI_controller(x):
-        x1, x2 = x
+    def PI_controller(e_x, activate_integrator):
+    # returns pump demand fraction from given error and its integral
 
-        ff = 1  # feed forward
+        e, e_I = e_x
 
-        u = 300*x1 + 50*x2 + ff
+        ff = 37.3  # feed forward
+
+        prop_term = 300*e
+
+        integ_term = 700*e_I
+        if abs(integ_term) > 4e4: # 88 units on pump:
+            integ_term = 4e4 if integ_term > 0 else -4e4
+
+        u = 300*e + 50*e_I + ff
 
         p_demand = Controller.umH2O_to_pump(u)
-        direction = math.sign(p_demand)
+
         if p_demand >= 1:
             p_demand = 0.999
-        if p_demand <= -1:
-            p_demand = -0.999
+        
+        if p_demand < 0: # can't negatively pump
+            p_demand = 0
 
         return p_demand
 
     def umH2O_to_pump(umH2O):
-    # take units umH2O & convert to pump units
-        conv_factor = 1
-        return conv_factor*umH2O
+    # take units umH2O & convert to pump fraction in (-1,1)
+
+        # R = 59.8 # [um/(mL/hr)]
+        # Q = umH2O/R # [mL/hr] flow IN ONE vessel
+        # pump_factor = 91.7/12 # [(mL/hr)/(pump_fraction)]
+        # demand = Q*conv_factor
+        return umH2O/457 # pump fraction
 
     def convert_demand(val):
-        dir_s = '1' if math.sign(val) > 0 else '0'
+        # dir_s = '1' if val > 0 else '0'
 
         v = abs(val)
 
@@ -161,7 +189,7 @@ class Controller:
         if len(ret) < 3:
             x = 3 - len(ret)
             ret = ret + '0'*x
-        return ret + ',' + dir_s + ','
+        return ret + ',' #+ dir_s + ',' omit direction as only want 1 way.
 
     def set_up_data(self, start_index, overwrite):
         names = self.data_files
@@ -216,6 +244,12 @@ class Controller:
             t_start = time()
             new_data = self.read_scan()
             if new_data and post_process_func is not None:
+                if self.current_index == 1:
+                    data = self.data[-1][1] 
+                    k = *zip(*data),
+                    i = sum((sum(u)/len(u) for u in k[0:3]))/3
+                    self.intensity_baseline = i
+
                 post_process_func()
             t_delta = time() - t_start
 
@@ -258,26 +292,31 @@ class Controller:
         self.wells = Well_Detector.read_well_loc()
 
     def find_offset(self, index):
+    
         rgbs = self.data[index][1]
 
         diffs = [0, 0, 0]
 
         # TODO FINISH THIS
 
-        if max(abs(diffs)) > 4:
-            WD = Well_Detector()
-            new_wells = WD.return_wells(self.get_sc_path(index))
+        loc_diffs = ((0,0))
 
-            loc_diffs = []
-            for i in range(len(self.wells)):
-                loc_diffs.append(
-                    [new_wells[i][0] - self.wells[i][0], new_wells[i][1] - self.wells[i][1]])
+        # if max(abs(diffs)) > 4: come up with good automatic correction detection mechanism
+
+        WD = Well_Detector()
+        new_wells = WD.return_wells(self.get_sc_path(index))
+
+        loc_diffs = tuple((new_wells[i][0] - self.wells[i][0], new_wells[i][1] - self.wells[i][1]) for i in range(len(self.wells)))
+                
+        x_dif, y_dif = zip(*loc_diffs)
+        return (round(mean(x_dif)), round(mean(y_dif)))        
 
     def recover_cropped(self):
-        # for use offline
+    # utility to process data from series of cropped wells instead of fulls scans. for use offline.
+
         processing = True
         while(processing):
-            processing = self.read_crop_well()
+            processing = self.read_stacked_well_im()
 
         with open(self.out_dir + 'exp_r.csv', 'r') as f:  # get the times.
             old_data = f.readlines()
@@ -296,10 +335,11 @@ class Controller:
         self.write_data_oneshot()
 
     def write_data_oneshot(self):
-        col = ('b', 'g', 'r', 'b_sd', 'g_sd', 'r_sd')
-        time, dat = zip(*self.data)
-        # pattern = r'[\[\]\(\)\'\s]'
+    # rewrites extracted data.
+        
+        col = self.data_files[1:]
 
+        time, dat = zip(*self.data)
         # got [ .. , ..]
         # with list of 12 x 6 tuples
         # u = tuple(zip(*dat))
@@ -322,7 +362,7 @@ class Controller:
             os.mkdir(self.alt_out_dir)
 
         for k in range(len(col)):
-            path = self.alt_out_dir+'exp_'+col[k]+'.csv'
+            path = self.alt_out_dir+col[k]+'.csv'
 
             if exists(path):
                 with open(path, 'w') as f:
@@ -331,7 +371,8 @@ class Controller:
                 with open(path, 'x') as f:
                     f.writelines(u[k])
 
-    def read_crop_well(self):
+    def read_stacked_well_im(self):
+    # read stacked-well image, process, and record data
         success = False
 
         path_to_im = self.get_pr_path(self.current_index)
@@ -359,6 +400,7 @@ class Controller:
         return ims
 
     def read_im_from_disk(path):
+    # returns image and date modified
         dateTaken = None
         im = None
 
@@ -369,6 +411,7 @@ class Controller:
         return im, dateTaken
 
     def process_scan(self, im, dateTaken):
+    # extract scan data
 
         condensed_im = self.crop_ims(im)
 
@@ -398,6 +441,7 @@ class Controller:
         return cv2.imread(path)
 
     def crop_ims(self, image):
+    # return list of images centered on well.
 
         well_ims = []
         for x, y, r in self.wells:
@@ -407,7 +451,7 @@ class Controller:
 
             sub_im = image[ys-r:ys+r, xs-r:xs+r]
 
-            imx, imy, z = np.shape(sub_im)
+            # imx, imy, z = np.shape(sub_im)
 
             # for u in range(imx):
             # for v in range(imy):
@@ -435,7 +479,7 @@ class Controller:
         return np.array(mask)/f
 
     def write_data(self):
-
+    # write next line of data to disk. appends to existing files
         next_datum = self.data[-1]
 
         time = next_datum[0]
@@ -444,19 +488,8 @@ class Controller:
 
         # b, g, r = list(zip(*bgr))
 
-        # pattern = r'[\[\]\(\)\']'
-
         lines = (str(time) + ',' + re.sub(self.s_pattern, '', str(l)) +
                  '\n' for l in list(zip(*bgr)))
-
-        # col = ('b', 'g', 'r', 'b_sd', 'g_sd', 'r_sd')
-
-        # for i in range(len(col)):
-        #     with open(self.out_dir + 'exp_' + col[i] + '.csv', 'a') as p:
-        #         p.writelines(next(lines))
-
-        # with open(self.out_dir + 'time.csv', 'a') as p:
-        #     p.writelines(str(self.current_index) + ','+str(time)+'\n')
 
         for i in range(len(self.data_files)):
             with open(self.out_dir + self.data_files[i] + '.csv', 'a') as p:
@@ -467,11 +500,12 @@ class Controller:
                                  ',' + str(time) + '\n')
 
     def avg_well(self, well_im):
+    # return average BGR and standard deviation BGR of provided image including values masked by self.mask    
         (x, y, z) = np.shape(well_im)
 
         avg = np.zeros((3,))
 
-        # TODO THIS MAY BE WRONG AS IM[Y][X]
+        flat_im = []
 
         flat_im = []
 
@@ -479,10 +513,6 @@ class Controller:
             for v in range(y):
                 if self.mask[x*u + v] > 0:
                     flat_im.append(well_im[v][u])
-                # else: will mess up SD metric
-                    # flat_im.append(np.zeros((3,)))
-
-        # avg = [ np.average(axis=) for x in range(3) ]
         avg = tuple(np.average(flat_im, axis=0))
         sd = tuple(np.std(flat_im, axis=0))
 
