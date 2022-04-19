@@ -1,8 +1,16 @@
+from http.client import CONTINUE
 from math import pi
+from random import sample
 import cv2
 import math
+from matplotlib.pyplot import gray
 import numpy as np
 import Util
+# from PIL import Image
+# from PIL import ImageOps
+
+import itertools
+
 import json
 
 
@@ -23,6 +31,8 @@ class Well_Detector():
 
     wells = []
 
+
+
     def __init__(self):
         settings = Util.load_settings()
 
@@ -36,7 +46,7 @@ class Well_Detector():
             self.CRAD = settings["crad"]
 
     def show_circs(self, im_name):
-        crc = self.get_box_and_circles(im_name)
+        crc = self.find_circles(im_name)
         output = cv2.imread(im_name)
         
         for (x, y, r) in crc:
@@ -88,7 +98,7 @@ class Well_Detector():
 
 
     def return_wells(self, im_name):
-        rect, crc = self.get_box_and_circles(im_name)
+        rect, crc = self.find_circles(im_name)
         points = self.get_circles_in_box(rect,crc)
 
         self.fit_wells(points)
@@ -110,23 +120,26 @@ class Well_Detector():
 
         return self.wells
 
-    def get_box_and_circles(self, im_name):
+    def find_circles(self, im_name):
 
         image = cv2.imread(im_name)
 
         gray_im = self.process_im(image)
 
-        rect_center = self.get_rect(image,gray_im)[0] # returns center of rectangle
+        rect = self.get_rect(image,gray_im)
 
         circles = cv2.HoughCircles(gray_im, cv2.HOUGH_GRADIENT, self.HG_DP,
                                    self.HG_MIN_DIST, minRadius=self.HG_MIN_RAD, maxRadius=self.HG_MAX_RAD)
 
-        return rect_center, circles[0]
+        return rect, [(round(x), round(y), round(r)) for (x, y, r) in circles[0, :]]
 
-    def get_circles_in_box(self, rect_cent, circs):
+    def get_circles_in_box(self, rect, circles):
+        center = rect[0]
+
+
         points = []
-        for (x,y,r) in circs:
-            dist = (x-rect_cent[0])**2 + (y - rect_cent[1])**2
+        for (x,y,r) in circles:
+            dist = (x-center[0])**2 + (y - center[1])**2
             if Well_Detector.approx_equal(dist,self.big_R**2,5e-2):
                 points.append((x,y))
         return points
@@ -137,8 +150,14 @@ class Well_Detector():
     def process_im(self, im):
         gray = cv2.equalizeHist(cv2.cvtColor(im, cv2.COLOR_BGR2GRAY))
 
+        # gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
+
         gray = cv2.bilateralFilter(gray,20,20,0)
 
+        # cv2.bilateralFilter()
+
+        # gray = cv2.GaussianBlur(gray, (5,5), 5)
+        # gray = cv2.Sobel(gray, 6, 1, 1)
         return gray
 
     def fit_wells(self,points):
@@ -147,6 +166,72 @@ class Well_Detector():
 
         self.wells = Well_Detector.recover_points(
             c_star, rad_star, rot_star, self.CRAD, self.N_wells)
+
+    def extrapolate(self, circles):
+        fit_thresh = 2
+        key_interval = 10
+        sample_N = 3
+        rad_thresh = 10e-3
+
+        points = [(x, y) for (x, y, r) in circles]
+
+        c_star = 0
+        rot_star = 0
+        rad_star = 0
+
+        final_points = {}
+
+        for sample_points in itertools.combinations(points, sample_N):
+            centre, rad, rot = Well_Detector.fit_circle(
+                sample_points, self.N_wells)
+
+            apr_c = (Well_Detector.discretise(
+                centre[0], key_interval), Well_Detector.discretise(centre[1], key_interval))
+
+            # does it match expected radius and are the points on a circle
+
+            valid_set = False
+
+            if Well_Detector.approx_equal(rad, self.big_R, rad_thresh):
+                if sample_N > 3:
+                    if Well_Detector.fits_circle(sample_points, centre, rad, fit_thresh):
+                        valid_set = True
+                else:
+                    valid_set = True
+
+            if valid_set:
+                if apr_c in final_points:
+                    final_points[apr_c].extend(sample_points)
+                else:
+                    final_points[apr_c] = list(sample_points)
+
+        max_length = 0
+
+        best_points = []
+        for k in final_points:
+            f = final_points[k]
+
+            # if len(f) > 4:
+            z = list(dict.fromkeys(f))
+            if len(z) > max_length:
+
+                c1, r1, rot1 = Well_Detector.fit_circle(
+                    z, self.N_wells)
+
+                if Well_Detector.fits_circle(z, c1, r1, fit_thresh):
+                    max_length = len(z)
+                    best_points = z
+
+        c_star, rad_star, rot_star = Well_Detector.fit_circle(
+            best_points, self.N_wells)
+
+        self.wells = Well_Detector.recover_points(
+            c_star, rad_star, rot_star, self.CRAD, self.N_wells)
+
+        print('wells detected: '+str(len(best_points)))
+
+        # self.wells = [(x, y, self.CRAD) for (x, y) in best_points]
+        # self.wells = [(x, y, self.CRAD) for (x, y) in points]
 
     def recover_points(center, bigR, rot, smallR, N):
         ideal_angles = list(np.linspace(
