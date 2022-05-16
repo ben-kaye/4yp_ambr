@@ -1,6 +1,6 @@
 # 4YP: Automated microBioreactor (AmBR)
 
-The source code for running the reactor experiments is included in /BR-OS/.
+The source code for running the reactor experiments is included in /BR-OS/. Python cripts are configured to run from git repository.
 
 Running an experiment is as follows. First update the directories in the ./BR-OS/data/settings.json. 
 1. python32 > ./BR-OS/scripts/run_scan.py
