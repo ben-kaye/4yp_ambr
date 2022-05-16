@@ -1,5 +1,5 @@
 from time import time
-from Detect import Well_Detector
+from libs.Detect import Well_Detector
 # import time
 
 WD = Well_Detector(write_ims=False, debugging=True)
