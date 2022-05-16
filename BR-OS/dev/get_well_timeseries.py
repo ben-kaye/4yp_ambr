@@ -3,15 +3,16 @@ from cv2 import ROTATE_90_CLOCKWISE
 import numpy as np
 
 # loc:
-path = './../Unit tests/Exp-12-04-ALS2/ims/wells_'
+path = './../Unit tests/Exp-D ALS/ims/wells_'
 out_path = './../Unit tests/out.bmp'
 
 final_index = 1239
 num = 10
+offset = 10 # indices
 
 mult = round(final_index/num)
 
-indices = tuple(i*mult for i in range(num))
+indices = tuple(offset + i*mult for i in range(num))
 
 ims = []
 
