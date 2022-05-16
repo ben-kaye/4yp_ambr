@@ -1,0 +1,12 @@
+{
+    "scan_dpi": 300,
+    "num_wells": 98,
+    "wells_per_cluster": 12,
+    "scan_interval": 60,
+    "exp_max": 10,
+    "crad": 38,
+    "hg_dp": 1.8,
+    "hg_min_dist": 80,
+    "hg_min_rad": 30,
+    "hg_max_rad": 45
+}
